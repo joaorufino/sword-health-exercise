@@ -1,0 +1,9 @@
+[tools]
+terraform = "1.9.8"
+terragrunt = "0.69.1"
+kubectl = "1.31.2"
+helm = "3.16.2"
+aws-cli = "2.22.7"
+
+[env]
+AWS_REGION = "eu-central-1"
