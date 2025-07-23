@@ -1,0 +1,2 @@
+# create SQS message queues
+# used by the application needs to be paired with a role 

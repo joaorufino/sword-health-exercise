@@ -1,0 +1,3 @@
+# managed Kubernetes clusters
+# we should split the control plane from the data plane
+# need to ensure that works well with the vpc
