@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+  namespace: node-example
+  labels:
+    app: test-client
+spec:
+  containers:
+  - name: test-container
+    image: busybox
+    command: ["sleep", "3600"]
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: network-policy-test
+  namespace: node-example
+spec:
+  template:
+    spec:
+      containers:
+      - name: test
+        image: busybox
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Testing network policy isolation..."
+
+          # Wait for pods to be ready
+          sleep 10
+
+          # Test 1: Try to connect to node-example app from test pod (should FAIL)
+          echo "Test 1: Attempting connection from test-pod to node-example (should timeout/fail)"
+          if timeout 10 nc -zv node-example 3000; then
+            echo "❌ FAIL: Connection succeeded when it should be blocked"
+            exit 1
+          else
+            echo "✅ PASS: Connection blocked as expected"
+          fi
+
+          # Test 2: Verify DNS still works (should SUCCEED)
+          echo "Test 2: Testing DNS resolution (should work)"
+          if nslookup kubernetes.default.svc.cluster.local; then
+            echo "✅ PASS: DNS resolution works"
+          else
+            echo "❌ FAIL: DNS resolution failed"
+            exit 1
+          fi
+
+          echo "All tests completed successfully!"
+      restartPolicy: Never
+  backoffLimit: 1

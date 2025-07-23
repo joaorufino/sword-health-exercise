@@ -35,18 +35,18 @@ locals {
 
   # EKS configuration
   eks_cluster_version = "1.33"  # Latest version as of July 2025
-  
+
   # EKS add-on versions
   eks_addon_versions = {
     coredns    = "v1.11.4-eksbuild.2"
     kube_proxy = "v1.33.0-eksbuild.1"
     vpc_cni    = "v1.18.0-eksbuild.1"
   }
-  
+
   # AWS Load Balancer Controller versions
   alb_controller_version       = "2.13.3"
   alb_controller_chart_version = "1.6.2"
-  
+
   # Helm chart versions
   helm_chart_versions = {
     node_example                 = "0.1.0"
@@ -90,14 +90,15 @@ locals {
     enable_sqs_dlq = true
     sqs_max_receive_count = 3
   }
-  
+
 
 
   # IP addresses allowed to access EKS API endpoint
   eks_ip_allow_list = [
-    "94.61.153.77/32",     # Admin user IP
+    "94.61.153.77/32",     # Office
+    "161.230.217.223/32",     # Home
   ]
-  
+
   # IP addresses allowed for deployment operations (CI/CD, etc.)
   deployment_ip_allow_list = [
     # "9.10.11.12/32",  # GitHub Actions runner IP (if using self-hosted)

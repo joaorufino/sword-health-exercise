@@ -105,3 +105,5 @@ variable "cluster_tags" {
   type        = map(string)
   default     = {}
 }
+
+# aws-auth ConfigMap variables moved to separate eks-aws-auth module
