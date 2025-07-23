@@ -1,0 +1,95 @@
+# Environment-specific values for node-example
+# These override the default values.yaml in the Helm chart
+
+replicaCount: 2
+
+image:
+  repository: ${image_repository}
+  tag: ${image_tag}
+  pullPolicy: Always  # Always pull in dev for latest changes
+
+service:
+  type: ClusterIP
+  port: 3000
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/tags: Environment=${environment},Service=node-example
+  # No host restriction - access directly via ALB DNS
+  hosts:
+    - paths:
+        - path: /
+          pathType: Prefix
+
+# Dev-optimized resources
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "128Mi"
+    cpu: "100m"
+
+# Minimal autoscaling for dev
+autoscaling:
+  enabled: false  # Disable for dev to save costs
+
+# Environment variables for the application
+env:
+  - name: NODE_ENV
+    value: "development"
+  - name: AWS_REGION
+    value: "${aws_region}"
+  - name: S3_BUCKET
+    value: "${s3_bucket}"
+  - name: S3_READONLY_BUCKET
+    value: "${s3_readonly_bucket}"
+  - name: SQS_QUEUE_URL
+    value: "${sqs_queue_url}"
+  # RDS connection from secret (created manually)
+  - name: DB_HOST
+    valueFrom:
+      secretKeyRef:
+        name: node-example-rds-credentials
+        key: host
+  - name: DB_PORT
+    valueFrom:
+      secretKeyRef:
+        name: node-example-rds-credentials
+        key: port
+  - name: DB_NAME
+    valueFrom:
+      secretKeyRef:
+        name: node-example-rds-credentials
+        key: database
+  - name: DB_USERNAME
+    valueFrom:
+      secretKeyRef:
+        name: node-example-rds-credentials
+        key: username
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: node-example-rds-credentials
+        key: password
+
+# Use IRSA service account
+serviceAccount:
+  create: false  # Created by Terraform
+  name: ${service_account_name}
+  annotations:
+    eks.amazonaws.com/role-arn: ${irsa_role_arn}
+
+# RBAC - Enable Kubernetes API access for listing pods in kube-system
+rbac:
+  create: true
+
+# Disable probes as the application doesn't have health endpoints
+livenessProbe: {}
+readinessProbe: {}

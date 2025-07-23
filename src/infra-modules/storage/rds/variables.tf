@@ -162,7 +162,7 @@ variable "secret_recovery_window_days" {
 variable "iam_database_authentication_enabled" {
   description = "Enable IAM database authentication"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "tags" {

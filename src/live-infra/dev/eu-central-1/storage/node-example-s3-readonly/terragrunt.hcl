@@ -5,7 +5,7 @@ include "root" {
 # Include the envcommon configuration for the component. The envcommon configuration contains settings that are common
 # for the component across all environments.
 include "envcommon" {
-  path   = "${dirname(find_in_parent_folders("root.hcl"))}/_envcommon/eks-control-plane.hcl"
+  path   = "${dirname(find_in_parent_folders("root.hcl"))}/_envcommon/s3.hcl"
   expose = true
 }
 
@@ -26,44 +26,38 @@ terraform {
   source = include.envcommon.locals.base_source_url
 }
 
-# Dependencies
-dependency "vpc" {
-  config_path = "../../networking/vpc"
-  
-  mock_outputs = {
-    vpc_id              = "vpc-12345678"
-    vpc_cidr_block      = "10.0.0.0/16"
-    private_subnet_ids  = ["subnet-1", "subnet-2", "subnet-3"]
-  }
-}
-
 # ---------------------------------------------------------------------------------------------------------------------
 # Override parameters for this environment
 # ---------------------------------------------------------------------------------------------------------------------
 
-# These inputs get merged with the common inputs from the envcommon eks-control-plane.hcl
+# These inputs get merged with the common inputs from the envcommon s3.hcl
 inputs = {
   # Environment-specific configuration
-  cluster_name = "${local.name_prefix}-${local.account_name}-eks"
-  vpc_id       = dependency.vpc.outputs.vpc_id
-  vpc_cidr     = dependency.vpc.outputs.vpc_cidr_block
-  subnet_ids   = dependency.vpc.outputs.private_subnet_ids
+  bucket_name = "${local.common_vars.locals.app_bucket_readonly_name}-${local.account_name}-readonly"
   
-  public_access_cidrs = local.common_vars.locals.eks_ip_allow_list
+  # For dev environment, allow force destroy for easier cleanup
+  force_destroy = true
   
-  # Disable CloudWatch logs to save costs in dev
-  enabled_cluster_log_types = []
+  # Lifecycle rules to automatically delete objects after 1 day
+  lifecycle_rules = {
+    delete_old_objects = {
+      enabled         = true
+      transitions     = []
+      expiration_days = 1  # Delete objects after 1 day
+      noncurrent_days = 1  # Delete non-current versions after 1 day (for versioned objects)
+    }
+  }
   
-  common_tags = merge(
+  # Tags
+  tags = merge(
     local.common_vars.locals.default_tags,
     {
       Environment = local.account_name
+      Application = "node-example"
+      Service     = "s3-storage-readonly"
+      Purpose     = "read-only-bucket"
       Region      = local.aws_region
       ManagedBy   = "Terragrunt"
     }
   )
-  
-  cluster_tags = {
-    "kubernetes.io/cluster/${local.name_prefix}-${local.account_name}-eks" = "owned"
-  }
 }

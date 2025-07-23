@@ -34,7 +34,7 @@ dependency "eks" {
   
   mock_outputs = {
     cluster_id      = "mock-cluster"
-    cluster_version = "1.28"
+    cluster_version = "1.33"
   }
 }
 
@@ -56,7 +56,7 @@ inputs = {
       instance_types = ["t3.medium", "t3a.medium", "t2.medium", "t3.small", "t3a.small", "t2.small"]
       
       disk_size = 20
-      ami_type  = "AL2_x86_64"
+      ami_type  = "AL2023_x86_64_STANDARD"
       
       labels = {
         role = "general"

@@ -1,0 +1,63 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "node-example.fullname" . }}
+  labels:
+    {{- include "node-example.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "node-example.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # ONLY allow traffic from ALB/Ingress controller
+    # This denies access from any other pod in the cluster (REQ-SEC-003-POD-ISOLATION)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: aws-load-balancer-controller
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.targetPort | default .Values.service.port }}
+  egress:
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow HTTPS traffic to AWS services (RDS, S3, SQS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow MySQL traffic to RDS (in VPC)
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCidr | default "10.0.0.0/16" }}
+      ports:
+        - protocol: TCP
+          port: 3306
+    # Allow communication within the namespace
+    - to:
+        - podSelector: {}
+{{- end }}

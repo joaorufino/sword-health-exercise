@@ -48,7 +48,7 @@ dependency "vpc" {
 inputs = {
   # Environment-specific configuration
   identifier = "${local.name_prefix}-${local.account_name}-mysql"
-  instance_class = "db.t3.micro"  # Small instance for dev
+  instance_class = "db.t3.small"  # Small instance for dev that supports IAM auth
   
   # Storage
   allocated_storage          = 20   # Start small for dev

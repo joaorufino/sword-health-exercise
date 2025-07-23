@@ -13,6 +13,27 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
+# Environment variables for the application
+env: []
+  # Example environment variables - these should be set via Terragrunt
+  # - name: AWS_REGION
+  #   value: "eu-central-1"
+  # - name: S3_BUCKET_NAME
+  #   value: "my-bucket"
+  # - name: SQS_QUEUE_URL
+  #   value: "https://sqs.eu-central-1.amazonaws.com/123456789012/my-queue"
+  # - name: DB_HOST
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: rds-credentials
+  #       key: host
+
+# IRSA Role ARN - if set, will be added to service account annotations
+irsaRoleArn: ""
+
+# RDS Secret name
+rdsSecretName: "rds-credentials"
+
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
 # This is to override the chart name.
@@ -54,15 +75,17 @@ service:
   # This sets the service type more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   type: ClusterIP
   # This sets the ports more information can be found here: https://kubernetes.io/docs/concepts/services-networking/service/#field-spec-ports
-  port: 80
+  port: 3000
+  # Target port is the port the container listens on
+  targetPort: 3000
 
 # This block is for setting up the ingress for more information can be found here: https://kubernetes.io/docs/concepts/services-networking/ingress/
 ingress:
   enabled: false
-  className: ""
+  className: "alb"
   annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
+    # alb.ingress.kubernetes.io/scheme: internet-facing
+    # alb.ingress.kubernetes.io/target-type: ip
   hosts:
     - host: chart-example.local
       paths:
@@ -86,14 +109,15 @@ resources: {}
   #   memory: 128Mi
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-livenessProbe:
-  httpGet:
-    path: /
-    port: http
-readinessProbe:
-  httpGet:
-    path: /
-    port: http
+# NOTE: Set to empty object {} or null to disable probes if your application doesn't have health endpoints
+livenessProbe: {}
+  # httpGet:
+  #   path: /health
+  #   port: http
+readinessProbe: {}
+  # httpGet:
+  #   path: /ready
+  #   port: http
 
 # This section is for setting up autoscaling more information can be found here: https://kubernetes.io/docs/concepts/workloads/autoscaling/
 autoscaling:
@@ -121,3 +145,15 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# RBAC configuration
+rbac:
+  # Create Role and RoleBinding for Kubernetes API access
+  create: false
+
+# Network Policy configuration for pod isolation (REQ-SEC-003-POD-ISOLATION)
+networkPolicy:
+  # Enable network policy to deny access from other pods
+  enabled: true
+  # VPC CIDR for allowing internal traffic (e.g., to RDS)
+  vpcCidr: "10.0.0.0/16"

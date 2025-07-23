@@ -1,32 +1,73 @@
 # Custom IAM Policies
 # Variables available: ${name_prefix}, ${account_id}
 
+# S3 policies matching REQ-STOR-001-S3-READ and REQ-STOR-002-S3-WRITE
 s3-app-access:
-  description: "Access to application S3 buckets"
+  description: "Application access to S3 buckets (read-only and write)"
   statements:
+    # Read-only bucket access (REQ-STOR-001-S3-READ)
     - Effect: "Allow"
       Action:
         - "s3:GetObject"
         - "s3:GetObjectVersion"
         - "s3:ListBucket"
         - "s3:GetBucketLocation"
+        - "s3:GetBucketVersioning"
       Resource:
-        - "arn:aws:s3:::${name_prefix}-app-data-read"
-        - "arn:aws:s3:::${name_prefix}-app-data-read/*"
+        - "arn:aws:s3:::${name_prefix}-app-read-only"
+        - "arn:aws:s3:::${name_prefix}-app-read-only/*"
+    # Write bucket access (REQ-STOR-002-S3-WRITE)
     - Effect: "Allow"
       Action:
         - "s3:PutObject"
         - "s3:PutObjectAcl"
         - "s3:DeleteObject"
         - "s3:GetObject"
-      Resource:
-        - "arn:aws:s3:::${name_prefix}-app-data-write/*"
-    - Effect: "Allow"
-      Action:
         - "s3:ListBucket"
       Resource:
-        - "arn:aws:s3:::${name_prefix}-app-data-write"
+        - "arn:aws:s3:::${name_prefix}-app-write/*"
+        - "arn:aws:s3:::${name_prefix}-app-write"
 
+# SQS policy matching REQ-MSG-001-SQS
+sqs-app-access:
+  description: "Application access to SQS queue"
+  statements:
+    - Effect: "Allow"
+      Action:
+        - "sqs:ReceiveMessage"
+        - "sqs:DeleteMessage"
+        - "sqs:GetQueueAttributes"
+        - "sqs:GetQueueUrl"
+        - "sqs:ChangeMessageVisibility"
+      Resource:
+        - "arn:aws:sqs:*:${account_id}:${name_prefix}-app-queue"
+
+# RDS policy matching REQ-DB-001-MYSQL and REQ-APP-002-MYSQL-ACCESS
+rds-app-access:
+  description: "Application access to MySQL RDS database"
+  statements:
+    - Effect: "Allow"
+      Action:
+        - "rds:DescribeDBInstances"
+        - "rds:DescribeDBClusters"
+      Resource: "*"
+      Condition:
+        StringEquals:
+          "aws:RequestedRegion": "${aws_region}"
+    - Effect: "Allow"
+      Action:
+        - "rds-db:connect"
+      Resource:
+        - "arn:aws:rds-db:${aws_region}:${account_id}:dbuser:*/${name_prefix}-app-user"
+    # For accessing secrets manager (database credentials)
+    - Effect: "Allow"
+      Action:
+        - "secretsmanager:GetSecretValue"
+        - "secretsmanager:DescribeSecret"
+      Resource:
+        - "arn:aws:secretsmanager:${aws_region}:${account_id}:secret:${name_prefix}-db-*"
+
+# EKS developer policy matching REQ-SEC-002-ACCESS-METHOD
 eks-developer:
   description: "Developer access to EKS clusters"
   statements:
@@ -37,32 +78,59 @@ eks-developer:
         - "eks:DescribeNodegroup"
         - "eks:ListNodegroups"
         - "eks:AccessKubernetesApi"
+        - "eks:ListFargateProfiles"
+        - "eks:DescribeFargateProfile"
       Resource:
-        - "*"
+        - "arn:aws:eks:*:${account_id}:cluster/${name_prefix}-*"
+        - "arn:aws:eks:*:${account_id}:nodegroup/${name_prefix}-*/*/*"
+        - "arn:aws:eks:*:${account_id}:fargateprofile/${name_prefix}-*/*/*"
+    # For kubectl access
     - Effect: "Allow"
       Action:
-        - "ssm:StartSession"
+        - "sts:AssumeRole"
       Resource:
-        - "arn:aws:ssm:*:${account_id}:session/*"
-        - "arn:aws:ec2:*:${account_id}:instance/*"
-      Condition:
-        StringLike:
-          "ssm:resourceTag/eks:cluster-name": "${name_prefix}-*"
+        - "arn:aws:iam::${account_id}:role/${name_prefix}-eks-*"
 
-rds-access:
-  description: "RDS database access for applications"
+# Database backup policy matching REQ-DB-002-BACKUP
+rds-backup-access:
+  description: "Permissions for automated RDS backup and restore"
   statements:
     - Effect: "Allow"
       Action:
-        - "rds:DescribeDBInstances"
-        - "rds:DescribeDBClusters"
-        - "rds:DescribeDBParameterGroups"
-        - "rds:DescribeDBSecurityGroups"
-        - "rds:DescribeDBSubnetGroups"
+        - "rds:CreateDBSnapshot"
+        - "rds:DeleteDBSnapshot"
+        - "rds:DescribeDBSnapshots"
+        - "rds:RestoreDBInstanceFromDBSnapshot"
+        - "rds:CopyDBSnapshot"
+        - "rds:ModifyDBSnapshotAttribute"
       Resource:
-        - "*"
+        - "arn:aws:rds:*:${account_id}:db:${name_prefix}-*"
+        - "arn:aws:rds:*:${account_id}:snapshot:${name_prefix}-*"
     - Effect: "Allow"
       Action:
-        - "rds-db:connect"
+        - "rds:ListTagsForResource"
+        - "rds:AddTagsToResource"
+      Resource: "*"
+      Condition:
+        StringEquals:
+          "aws:RequestedRegion": "${aws_region}"
+
+# General RDS access for developers
+rds-access:
+  description: "RDS database access for developers"
+  statements:
+    - Effect: "Allow"
+      Action:
+        - "rds:Describe*"
+        - "rds:List*"
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - "rds:ModifyDBInstance"
+        - "rds:RebootDBInstance"
+        - "rds:CreateDBSnapshot"
       Resource:
-        - "arn:aws:rds-db:*:${account_id}:dbuser:*/${name_prefix}-*"
+        - "arn:aws:rds:*:${account_id}:db:${name_prefix}-*"
+      Condition:
+        StringEquals:
+          "aws:RequestedRegion": "${aws_region}"

@@ -1,0 +1,21 @@
+digraph {
+	"apps/node-example" ;
+	"apps/node-example" -> "services/eks-control-plane";
+	"apps/node-example" -> "services/app-example";
+	"data/rds-mysql" ;
+	"data/rds-mysql" -> "networking/vpc";
+	"networking/vpc" ;
+	"services/alb-controller-irsa" ;
+	"services/alb-controller-irsa" -> "services/eks-control-plane";
+	"services/app-example" ;
+	"services/app-example" -> "services/eks-control-plane";
+	"services/aws-load-balancer-controller" ;
+	"services/aws-load-balancer-controller" -> "services/eks-control-plane";
+	"services/aws-load-balancer-controller" -> "services/alb-controller-irsa";
+	"services/aws-load-balancer-controller" -> "networking/vpc";
+	"services/eks-control-plane" ;
+	"services/eks-control-plane" -> "networking/vpc";
+	"services/eks-node-group" ;
+	"services/eks-node-group" -> "networking/vpc";
+	"services/eks-node-group" -> "services/eks-control-plane";
+}

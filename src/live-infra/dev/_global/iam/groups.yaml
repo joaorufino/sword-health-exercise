@@ -18,8 +18,8 @@ admins:
             - "iam:DeactivateMFADevice"
             - "iam:ResyncMFADevice"
           Resource:
-            - "arn:aws:iam::${account_id}:user/${aws:username}"
-            - "arn:aws:iam::${account_id}:mfa/${aws:username}"
+            - "arn:aws:iam::${account_id}:user/$$$${aws:username}"
+            - "arn:aws:iam::${account_id}:mfa/$$$${aws:username}"
 
 developers:
   assumable_roles:
@@ -40,8 +40,8 @@ developers:
             - "iam:DeactivateMFADevice"
             - "iam:ResyncMFADevice"
           Resource:
-            - "arn:aws:iam::${account_id}:user/${aws:username}"
-            - "arn:aws:iam::${account_id}:mfa/${aws:username}"
+            - "arn:aws:iam::${account_id}:user/$$$${aws:username}"
+            - "arn:aws:iam::${account_id}:mfa/$$$${aws:username}"
         - Effect: "Allow"
           Action:
             - "iam:ListVirtualMFADevices"
