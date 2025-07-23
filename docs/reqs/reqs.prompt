@@ -1,0 +1,7 @@
+Create a requirements document for AWS infrastructure using this template:
+
+CONTEXT: Deploy swordhealth/node-example app on AWS EKS with MySQL, S3, SQS, secure networking, and IaC.
+FORMAT: REQ-[CATEGORY]-XXX-[NAME] | Title | Description | Priority (Must Have/Nice to Have)
+CATEGORIES: Infrastructure (AWS/EKS/Terraform), Security (private cluster/pod isolation), Networking (LB), Database (MySQL/backups), Application (deployment/connectivity), Storage (read/write S3), Messaging (SQS), K8s API (bonus), Delivery (state/CI-CD/docs)
+CONSTRAINTS: Multi-env support, automation focus, include counterarguments where applicable
+OUTPUT: Markdown with ### headers per category, structured requirement entries

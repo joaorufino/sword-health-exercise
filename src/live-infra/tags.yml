@@ -1,4 +1,3 @@
 # Default tags applied to all resources across all environments
-Team: Platform
-Owner: DevOps
-Terraform: "true"
+owner: DevOps
+terraform: "true"

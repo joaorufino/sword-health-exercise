@@ -1,5 +1,7 @@
-# Root terragrunt configuration
-# This file is included by all terragrunt configurations in the live-infra directory
+
+# use terraform
+terraform_binary = "/usr/bin/terraform"
+ 
 
 # Load common variables
 locals {
@@ -20,8 +22,8 @@ locals {
   aws_region     = local.region_vars.locals.aws_region
   
   # S3 backend configuration
-  state_bucket   = "${local.common_vars.locals.state_bucket_prefix}-${local.account_id}"
-  dynamodb_table = "${local.common_vars.locals.dynamodb_table_name}-${local.account_name}"
+  state_bucket   = lower("${local.name_prefix}-${local.account_name}-${local.aws_region}-tf-state")
+  dynamodb_table = "terraform-locks"
   
   # Load override tags if they exist
   override_tags        = try(yamldecode(file("${get_terragrunt_dir()}/tags.yml")), {})
@@ -49,7 +51,7 @@ provider "aws" {
   
   # Only these AWS Account IDs may be operated on
   allowed_account_ids = ["${local.account_id}"]
-  
+    
   default_tags {
     tags = ${jsonencode(local.tags)}
   }
@@ -107,16 +109,17 @@ remote_state {
   backend = "s3"
   
   config = {
-    encrypt        = true
-    bucket         = local.state_bucket
-    key            = "${path_relative_to_include()}/terraform.tfstate"
-    region         = local.aws_region
-    dynamodb_table = local.dynamodb_table
+    encrypt                   = true
+    bucket                    = local.state_bucket
+    key                       = "${path_relative_to_include()}/terraform.tfstate"
+    region                    = local.aws_region
+    dynamodb_table            = local.dynamodb_table
+    accesslogging_bucket_name = lower("${local.name_prefix}-${local.account_name}-${local.aws_region}-tf-logs")
     
     # Enable bucket versioning and access logging
-    skip_bucket_versioning         = false
+    skip_bucket_versioning             = false
     skip_bucket_public_access_blocking = false
-    skip_bucket_root_access        = false
+    skip_bucket_root_access            = false
     
     # Server-side encryption
     bucket_sse_algorithm = "AES256"
@@ -162,10 +165,8 @@ terraform {
       []
     )
   }
-}
-
-# Hooks for validation
-terraform {
+  
+  # Hooks for validation
   before_hook "before_hook" {
     commands = ["apply", "plan"]
     execute  = ["terraform", "fmt", "-check"]
@@ -176,11 +177,4 @@ terraform {
     execute      = ["echo", "Terraform apply completed successfully!"]
     run_on_error = false
   }
-}
-
-# Retry configuration
-retry_configuration {
-  retry_attempts       = 3
-  retry_delay_seconds  = 5
-  retryable_exit_codes = [1]
 }
