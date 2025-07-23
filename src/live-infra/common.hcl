@@ -15,24 +15,18 @@ locals {
   # DynamoDB table for state locking
   dynamodb_table_name = "terraform-locks"
 
-  # Common VPC CIDR blocks per environment
+  # VPC CIDR blocks per environment
   vpc_cidrs = {
-    dev     = "10.0.0.0/16"
+    dev = "10.0.0.0/16"
   }
 
-  # Subnet CIDR configuration
-  subnet_configs = {
-    public = {
-      subnet_bits = 4  # /20 subnets (4096 IPs each)
-      offset      = 0
-    }
-    private = {
-      subnet_bits = 2  # /18 subnets (16384 IPs each)
-      offset      = 4
-    }
-    database = {
-      subnet_bits = 6  # /22 subnets (1024 IPs each)
-      offset      = 8
+  # Subnet CIDR blocks - explicitly defined for each environment
+  # Each subnet type gets 3 subnets (one per AZ)
+  vpc_subnets = {
+    dev = {
+      public = ["10.0.0.0/20", "10.0.16.0/20", "10.0.32.0/20"]
+      private = ["10.0.48.0/20", "10.0.64.0/20", "10.0.80.0/20"]
+      data = ["10.0.96.0/20", "10.0.112.0/20", "10.0.128.0/20"]
     }
   }
 

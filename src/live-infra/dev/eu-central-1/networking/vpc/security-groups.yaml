@@ -1,0 +1,114 @@
+# Security group rules for VPC
+# These rules are templated and can use variables like vpc_cidr
+
+private_security_group_ingress_rules:
+  - from_port: 443
+    to_port: 443
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow HTTPS within VPC"
+  
+  - from_port: 80
+    to_port: 80
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow HTTP within VPC"
+  
+  - from_port: 8080
+    to_port: 8080
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow application traffic within VPC"
+  
+  # Kubernetes API server
+  - from_port: 6443
+    to_port: 6443
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow Kubernetes API server"
+  
+  # Node port range for Kubernetes services
+  - from_port: 30000
+    to_port: 32767
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow NodePort services"
+
+data_security_group_ingress_rules:
+  # PostgreSQL
+  - from_port: 5432
+    to_port: 5432
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow PostgreSQL from VPC"
+  
+  # MySQL
+  - from_port: 3306
+    to_port: 3306
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow MySQL from VPC"
+  
+  # Redis
+  - from_port: 6379
+    to_port: 6379
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow Redis from VPC"
+  
+  # MongoDB
+  - from_port: 27017
+    to_port: 27017
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow MongoDB from VPC"
+  
+  # Elasticsearch
+  - from_port: 9200
+    to_port: 9200
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow Elasticsearch from VPC"
+  
+  # Kafka
+  - from_port: 9092
+    to_port: 9092
+    protocol: tcp
+    cidr_blocks: 
+      - "${vpc_cidr}"
+    description: "Allow Kafka from VPC"
+
+# Public security group rules (if you want to customize)
+public_security_group_ingress_rules:
+  - from_port: 80
+    to_port: 80
+    protocol: tcp
+    cidr_blocks: 
+      - "0.0.0.0/0"
+    description: "Allow HTTP from anywhere"
+  
+  - from_port: 443
+    to_port: 443
+    protocol: tcp
+    cidr_blocks: 
+      - "0.0.0.0/0"
+    description: "Allow HTTPS from anywhere"
+
+# Default egress rules (same for all security groups)
+default_egress_rules:
+  - from_port: 0
+    to_port: 0
+    protocol: "-1"
+    cidr_blocks: 
+      - "0.0.0.0/0"
+    description: "Allow all outbound traffic"
