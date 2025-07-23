@@ -1,0 +1,81 @@
+# IAM Roles Configuration
+# Variables available: ${name_prefix}, ${account_id}
+
+# Human roles for console/CLI access
+${name_prefix}-admin:
+  description: "Admin role with full AWS access"
+  require_mfa: true
+  max_session_duration: 43200  # 12 hours
+  managed_policies:
+    - AdministratorAccess
+  allowed_ips: []  # Add IP restrictions here if needed
+
+${name_prefix}-developer:
+  description: "Developer role with EKS and application access"
+  require_mfa: true
+  max_session_duration: 28800  # 8 hours
+  managed_policies:
+    - PowerUserAccess
+  custom_policies:
+    - eks-developer
+    - rds-access
+  inline_policies:
+    deny-sensitive-actions:
+      statements:
+        - Effect: "Deny"
+          Action:
+            - "iam:*"
+            - "organizations:*"
+            - "account:*"
+          Resource: "*"
+
+${name_prefix}-readonly:
+  description: "Read-only role for auditing and monitoring"
+  require_mfa: false
+  max_session_duration: 14400  # 4 hours
+  managed_policies:
+    - ReadOnlyAccess
+
+# Application roles (for IRSA - IAM Roles for Service Accounts)
+${name_prefix}-node-app-role:
+  description: "Role for node-example application pods in EKS"
+  require_mfa: false
+  trusted_entities:
+    - "arn:aws:iam::${account_id}:root"  # Will be updated with OIDC provider after EKS creation
+  custom_policies:
+    - s3-app-access
+    - sqs-app-access
+    - rds-app-access
+  inline_policies:
+    k8s-api-access:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "eks:DescribeCluster"
+          Resource:
+            - "arn:aws:eks:*:${account_id}:cluster/${name_prefix}-eks-cluster"
+
+# Infrastructure automation roles
+${name_prefix}-terraform-role:
+  description: "Role for Terraform/GitHub Actions automation"
+  require_mfa: false
+  max_session_duration: 3600  # 1 hour
+  trusted_entities:
+    - "arn:aws:iam::${account_id}:root"  # Update with GitHub OIDC provider after setup
+  managed_policies:
+    - PowerUserAccess
+  inline_policies:
+    iam-limited:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "iam:*"
+          Resource:
+            - "arn:aws:iam::${account_id}:role/${name_prefix}-*"
+            - "arn:aws:iam::${account_id}:policy/${name_prefix}-*"
+            - "arn:aws:iam::${account_id}:instance-profile/${name_prefix}-*"
+        - Effect: "Deny"
+          Action:
+            - "iam:CreateAccessKey"
+            - "iam:DeleteAccessKey"
+          Resource: "*"

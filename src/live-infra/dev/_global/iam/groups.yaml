@@ -1,0 +1,54 @@
+# Groups that can assume roles
+admins:
+  assumable_roles:
+    - ${name_prefix}-admin
+  inline_policies:
+    self-service:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "iam:GetUser"
+            - "iam:ChangePassword"
+            - "iam:GetLoginProfile"
+            - "iam:UpdateLoginProfile"
+            - "iam:ListMFADevices"
+            - "iam:CreateVirtualMFADevice"
+            - "iam:DeleteVirtualMFADevice"
+            - "iam:EnableMFADevice"
+            - "iam:DeactivateMFADevice"
+            - "iam:ResyncMFADevice"
+          Resource:
+            - "arn:aws:iam::${account_id}:user/${aws:username}"
+            - "arn:aws:iam::${account_id}:mfa/${aws:username}"
+
+developers:
+  assumable_roles:
+    - ${name_prefix}-developer
+    - ${name_prefix}-readonly  # Developers can switch to readonly for safe operations
+  inline_policies:
+    self-service:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "iam:GetUser"
+            - "iam:ChangePassword"
+            - "iam:GetLoginProfile"
+            - "iam:ListMFADevices"
+            - "iam:CreateVirtualMFADevice"
+            - "iam:DeleteVirtualMFADevice"
+            - "iam:EnableMFADevice"
+            - "iam:DeactivateMFADevice"
+            - "iam:ResyncMFADevice"
+          Resource:
+            - "arn:aws:iam::${account_id}:user/${aws:username}"
+            - "arn:aws:iam::${account_id}:mfa/${aws:username}"
+        - Effect: "Allow"
+          Action:
+            - "iam:ListVirtualMFADevices"
+          Resource: "*"
+
+readonly-users:
+  assumable_roles:
+    - ${name_prefix}-readonly
+  managed_policies:
+    - ReadOnlyAccess

@@ -1,0 +1,68 @@
+# Custom IAM Policies
+# Variables available: ${name_prefix}, ${account_id}
+
+s3-app-access:
+  description: "Access to application S3 buckets"
+  statements:
+    - Effect: "Allow"
+      Action:
+        - "s3:GetObject"
+        - "s3:GetObjectVersion"
+        - "s3:ListBucket"
+        - "s3:GetBucketLocation"
+      Resource:
+        - "arn:aws:s3:::${name_prefix}-app-data-read"
+        - "arn:aws:s3:::${name_prefix}-app-data-read/*"
+    - Effect: "Allow"
+      Action:
+        - "s3:PutObject"
+        - "s3:PutObjectAcl"
+        - "s3:DeleteObject"
+        - "s3:GetObject"
+      Resource:
+        - "arn:aws:s3:::${name_prefix}-app-data-write/*"
+    - Effect: "Allow"
+      Action:
+        - "s3:ListBucket"
+      Resource:
+        - "arn:aws:s3:::${name_prefix}-app-data-write"
+
+eks-developer:
+  description: "Developer access to EKS clusters"
+  statements:
+    - Effect: "Allow"
+      Action:
+        - "eks:DescribeCluster"
+        - "eks:ListClusters"
+        - "eks:DescribeNodegroup"
+        - "eks:ListNodegroups"
+        - "eks:AccessKubernetesApi"
+      Resource:
+        - "*"
+    - Effect: "Allow"
+      Action:
+        - "ssm:StartSession"
+      Resource:
+        - "arn:aws:ssm:*:${account_id}:session/*"
+        - "arn:aws:ec2:*:${account_id}:instance/*"
+      Condition:
+        StringLike:
+          "ssm:resourceTag/eks:cluster-name": "${name_prefix}-*"
+
+rds-access:
+  description: "RDS database access for applications"
+  statements:
+    - Effect: "Allow"
+      Action:
+        - "rds:DescribeDBInstances"
+        - "rds:DescribeDBClusters"
+        - "rds:DescribeDBParameterGroups"
+        - "rds:DescribeDBSecurityGroups"
+        - "rds:DescribeDBSubnetGroups"
+      Resource:
+        - "*"
+    - Effect: "Allow"
+      Action:
+        - "rds-db:connect"
+      Resource:
+        - "arn:aws:rds-db:*:${account_id}:dbuser:*/${name_prefix}-*"

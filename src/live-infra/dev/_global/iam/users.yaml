@@ -1,0 +1,16 @@
+# IAM Users Configuration
+# No variables available - use exact usernames
+
+joao.rufino@outlook.pt:
+  groups:
+    - admin-access      # Can assume admin role
+    - iam-admins       # Direct IAM permissions
+  create_login_profile: true
+  create_access_keys: true
+
+test.user@swordhealth.com:
+  groups:
+    - readonly-access   # Can assume readonly role
+  create_login_profile: false
+  create_access_keys: false
+
