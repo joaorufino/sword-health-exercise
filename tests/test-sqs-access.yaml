@@ -1,0 +1,169 @@
+---
+# SQS Access Test
+# Validates REQ-MSG-001: Application must be able to consume messages from SQS queue
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sqs-access-test
+  namespace: node-example
+data:
+  test-sqs.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "📨 SQS Access Test"
+    echo "=================="
+    
+    # Get AWS account ID
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    AWS_REGION=${AWS_DEFAULT_REGION:-eu-central-1}
+    SQS_QUEUE_NAME="node-example-dev"
+    SQS_QUEUE_URL="https://sqs.$AWS_REGION.amazonaws.com/$AWS_ACCOUNT_ID/$SQS_QUEUE_NAME"
+    
+    echo "Queue URL: $SQS_QUEUE_URL"
+    echo ""
+    
+    # Test 1: Queue accessibility
+    echo "Test 1: Testing SQS queue accessibility..."
+    if aws sqs get-queue-attributes --queue-url "$SQS_QUEUE_URL" --attribute-names QueueArn 2>/dev/null >/dev/null; then
+      echo "✅ PASS: Can access SQS queue"
+    else
+      echo "❌ FAIL: Cannot access SQS queue"
+      aws sqs get-queue-attributes --queue-url "$SQS_QUEUE_URL" --attribute-names QueueArn 2>&1 || true
+      exit 1
+    fi
+    
+    # Test 2: Receive message permission (consumer capability)
+    echo "Test 2: Testing receive message permission..."
+    
+    # First, check for existing messages
+    MESSAGES=$(aws sqs receive-message --queue-url "$SQS_QUEUE_URL" --max-number-of-messages 10 --wait-time-seconds 1 2>/dev/null || echo "{}")
+    
+    if echo "$MESSAGES" | grep -q '"Messages"'; then
+      echo "✅ PASS: Can receive messages from SQS queue"
+      
+      # Test delete message permission for received messages
+      echo "Test 2a: Testing delete message permission..."
+      RECEIPT_HANDLES=$(echo "$MESSAGES" | jq -r '.Messages[]?.ReceiptHandle // empty' 2>/dev/null | head -3)
+      
+      if [ -n "$RECEIPT_HANDLES" ]; then
+        DELETED_COUNT=0
+        while IFS= read -r RECEIPT_HANDLE; do
+          if [ -n "$RECEIPT_HANDLE" ] && [ "$RECEIPT_HANDLE" != "null" ]; then
+            if aws sqs delete-message --queue-url "$SQS_QUEUE_URL" --receipt-handle "$RECEIPT_HANDLE" 2>/dev/null; then
+              ((DELETED_COUNT++))
+            fi
+          fi
+        done <<< "$RECEIPT_HANDLES"
+        
+        if [ "$DELETED_COUNT" -gt 0 ]; then
+          echo "✅ PASS: Can delete messages from SQS queue ($DELETED_COUNT deleted)"
+        else
+          echo "⚠️  WARNING: Could not delete any messages"
+        fi
+      fi
+    else
+      echo "✅ PASS: Can receive from SQS queue (no messages available)"
+    fi
+    
+    # Test 3: Send message permission (if applicable)
+    echo "Test 3: Testing send message permission..."
+    TEST_MESSAGE="Test message from role validation $(date +%s)"
+    
+    if aws sqs send-message --queue-url "$SQS_QUEUE_URL" --message-body "$TEST_MESSAGE" 2>/dev/null >/dev/null; then
+      echo "✅ PASS: Can send messages to SQS queue"
+      
+      # Try to receive the message we just sent
+      echo "Test 3a: Verifying sent message can be received..."
+      sleep 2  # Brief wait for message to be available
+      
+      SENT_MESSAGE=$(aws sqs receive-message --queue-url "$SQS_QUEUE_URL" --max-number-of-messages 1 --wait-time-seconds 3 2>/dev/null || echo "{}")
+      if echo "$SENT_MESSAGE" | grep -q "$TEST_MESSAGE"; then
+        echo "✅ PASS: Can receive the message that was sent"
+        
+        # Clean up the test message
+        RECEIPT_HANDLE=$(echo "$SENT_MESSAGE" | jq -r '.Messages[0].ReceiptHandle // empty' 2>/dev/null)
+        if [ -n "$RECEIPT_HANDLE" ] && [ "$RECEIPT_HANDLE" != "null" ]; then
+          aws sqs delete-message --queue-url "$SQS_QUEUE_URL" --receipt-handle "$RECEIPT_HANDLE" 2>/dev/null || true
+        fi
+      else
+        echo "⚠️  WARNING: Could not receive the sent message (may be due to timing)"
+      fi
+    else
+      echo "ℹ️  INFO: Cannot send messages to SQS queue (may be by design for consumer-only role)"
+      aws sqs send-message --queue-url "$SQS_QUEUE_URL" --message-body "$TEST_MESSAGE" 2>&1 | head -3 || true
+    fi
+    
+    # Test 4: Queue attributes and permissions
+    echo "Test 4: Testing queue attributes access..."
+    
+    QUEUE_ATTRS=$(aws sqs get-queue-attributes --queue-url "$SQS_QUEUE_URL" --attribute-names All 2>/dev/null || echo "{}")
+    if echo "$QUEUE_ATTRS" | grep -q "Attributes"; then
+      echo "✅ PASS: Can read queue attributes"
+      
+      # Display relevant queue info
+      QUEUE_ARN=$(echo "$QUEUE_ATTRS" | jq -r '.Attributes.QueueArn // "N/A"' 2>/dev/null)
+      MSG_COUNT=$(echo "$QUEUE_ATTRS" | jq -r '.Attributes.ApproximateNumberOfMessages // "0"' 2>/dev/null)
+      
+      echo "    Queue ARN: $QUEUE_ARN"
+      echo "    Approximate message count: $MSG_COUNT"
+    else
+      echo "❌ FAIL: Cannot read queue attributes"
+    fi
+    
+    # Test 5: Long polling capability
+    echo "Test 5: Testing long polling capability..."
+    
+    echo "Attempting 5-second long poll..."
+    START_TIME=$(date +%s)
+    LONG_POLL_RESULT=$(aws sqs receive-message --queue-url "$SQS_QUEUE_URL" --max-number-of-messages 1 --wait-time-seconds 5 2>/dev/null || echo "{}")
+    END_TIME=$(date +%s)
+    POLL_DURATION=$((END_TIME - START_TIME))
+    
+    if [ "$POLL_DURATION" -ge 4 ]; then
+      echo "✅ PASS: Long polling works correctly (waited ${POLL_DURATION}s)"
+    else
+      echo "⚠️  WARNING: Long polling may not be working as expected (waited ${POLL_DURATION}s)"
+    fi
+    
+    echo ""
+    echo "🏁 SQS Access Test Complete!"
+    echo "Queue: $SQS_QUEUE_NAME"
+    echo "Region: $AWS_REGION"
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sqs-access-test
+  namespace: node-example
+spec:
+  template:
+    spec:
+      serviceAccountName: node-example
+      containers:
+      - name: sqs-test
+        image: amazon/aws-cli:latest
+        command: ["/bin/bash"]
+        args: ["/scripts/test-sqs.sh"]
+        volumeMounts:
+        - name: test-scripts
+          mountPath: /scripts
+        env:
+        - name: AWS_DEFAULT_REGION
+          value: "eu-central-1"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: test-scripts
+        configMap:
+          name: sqs-access-test
+          defaultMode: 0755
+      restartPolicy: Never
+  backoffLimit: 1

@@ -1,0 +1,140 @@
+---
+# S3 Write Access Test
+# Validates REQ-STOR-002: S3 bucket where application has write permissions
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: s3-write-access-test
+  namespace: node-example
+data:
+  test-s3-write.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "✏️  S3 Write Access Test"
+    echo "======================="
+    
+    S3_WRITE_BUCKET="node-example-dev"
+    
+    # Test 1: List objects permission (should succeed)
+    echo "Test 1: Testing list objects permission..."
+    if aws s3 ls s3://$S3_WRITE_BUCKET/ 2>/dev/null; then
+      echo "✅ PASS: Can list objects in write bucket"
+    else
+      echo "❌ FAIL: Cannot list objects in write bucket"
+      aws s3 ls s3://$S3_WRITE_BUCKET/ 2>&1 || true
+      exit 1
+    fi
+    
+    # Test 2: Write/Put operations (should succeed)
+    echo "Test 2: Testing write operations..."
+    mkdir -p /tmp
+    TEST_CONTENT="Test content from role validation $(date)"
+    TEST_KEY="test-upload-$(date +%s).txt"
+    echo "$TEST_CONTENT" > /tmp/test-upload.txt
+    
+    if aws s3 cp /tmp/test-upload.txt s3://$S3_WRITE_BUCKET/$TEST_KEY 2>/dev/null; then
+      echo "✅ PASS: Can write objects to write bucket"
+    else
+      echo "❌ FAIL: Cannot write objects to write bucket"
+      aws s3 cp /tmp/test-upload.txt s3://$S3_WRITE_BUCKET/$TEST_KEY 2>&1 || true
+      exit 1
+    fi
+    
+    # Test 3: Get/Read operations (should succeed)
+    echo "Test 3: Testing read operations..."
+    if aws s3 cp s3://$S3_WRITE_BUCKET/$TEST_KEY /tmp/test-download.txt 2>/dev/null; then
+      echo "✅ PASS: Can read objects from write bucket"
+      
+      # Verify content matches using digest comparison
+      UPLOAD_DIGEST=$(sha256sum /tmp/test-upload.txt | cut -d' ' -f1)
+      DOWNLOAD_DIGEST=$(sha256sum /tmp/test-download.txt | cut -d' ' -f1)
+      if [ "$UPLOAD_DIGEST" = "$DOWNLOAD_DIGEST" ]; then
+        echo "✅ PASS: Downloaded content matches uploaded content"
+      else
+        echo "❌ FAIL: Downloaded content doesn't match"
+        echo "Expected: $(cat /tmp/test-upload.txt)"
+        echo "Got: $(cat /tmp/test-download.txt)"
+        exit 1
+      fi
+    else
+      echo "❌ FAIL: Cannot read objects from write bucket"
+      aws s3 cp s3://$S3_WRITE_BUCKET/$TEST_KEY /tmp/test-download.txt 2>&1 || true
+      exit 1
+    fi
+    
+    # Test 4: Delete operations (should succeed)
+    echo "Test 4: Testing delete operations..."
+    if aws s3 rm s3://$S3_WRITE_BUCKET/$TEST_KEY 2>/dev/null; then
+      echo "✅ PASS: Can delete objects from write bucket"
+    else
+      echo "❌ FAIL: Cannot delete objects from write bucket"
+      aws s3 rm s3://$S3_WRITE_BUCKET/$TEST_KEY 2>&1 || true
+      exit 1
+    fi
+    
+    # Test 5: Multiple object operations
+    echo "Test 5: Testing multiple object operations..."
+    
+    # Create multiple test files
+    for i in {1..3}; do
+      echo "Test file $i content $(date)" > /tmp/test-file-$i.txt
+      aws s3 cp /tmp/test-file-$i.txt s3://$S3_WRITE_BUCKET/multi-test-$i-$(date +%s).txt 2>/dev/null
+    done
+    
+    # List and verify
+    OBJECT_COUNT=$(aws s3 ls s3://$S3_WRITE_BUCKET/multi-test- | wc -l)
+    if [ "$OBJECT_COUNT" -ge 3 ]; then
+      echo "✅ PASS: Can handle multiple object operations"
+    else
+      echo "❌ FAIL: Multiple object operations failed"
+      exit 1
+    fi
+    
+    # Clean up test files
+    echo "Cleaning up test files..."
+    aws s3 rm s3://$S3_WRITE_BUCKET/ --recursive --exclude "*" --include "multi-test-*" 2>/dev/null || true
+    
+    # Clean up local files
+    rm -f /tmp/test-upload.txt /tmp/test-download.txt /tmp/test-file-*.txt
+    
+    echo ""
+    echo "🏁 S3 Write Access Test Complete!"
+    echo "Bucket: $S3_WRITE_BUCKET"
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s3-write-access-test
+  namespace: node-example
+spec:
+  template:
+    spec:
+      serviceAccountName: node-example
+      containers:
+      - name: s3-write-test
+        image: amazon/aws-cli:latest
+        command: ["/bin/bash"]
+        args: ["/scripts/test-s3-write.sh"]
+        volumeMounts:
+        - name: test-scripts
+          mountPath: /scripts
+        env:
+        - name: AWS_DEFAULT_REGION
+          value: "eu-central-1"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: test-scripts
+        configMap:
+          name: s3-write-access-test
+          defaultMode: 0755
+      restartPolicy: Never
+  backoffLimit: 1

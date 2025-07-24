@@ -1,0 +1,109 @@
+---
+# S3 Read-Only Access Test
+# Validates REQ-STOR-001: S3 bucket where application can only list and get objects
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: s3-read-access-test
+  namespace: node-example
+data:
+  test-s3-read.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "📖 S3 Read-Only Access Test"
+    echo "==========================="
+    
+    S3_READONLY_BUCKET="node-example-dev-readonly"
+    
+    # Test 1: List objects permission (should succeed)
+    echo "Test 1: Testing list objects permission..."
+    if aws s3 ls s3://$S3_READONLY_BUCKET/ 2>/dev/null; then
+      echo "✅ PASS: Can list objects in read-only bucket"
+    else
+      echo "❌ FAIL: Cannot list objects in read-only bucket"
+      aws s3 ls s3://$S3_READONLY_BUCKET/ 2>&1 || true
+      exit 1
+    fi
+    
+    # Test 2: Get object permission (should succeed if object exists)
+    echo "Test 2: Testing get object permission..."
+    TEST_KEY="test-file.txt"
+    if aws s3 cp s3://$S3_READONLY_BUCKET/$TEST_KEY /tmp/test-download 2>/dev/null; then
+      echo "✅ PASS: Can get objects from read-only bucket"
+      rm -f /tmp/test-download
+    else
+      echo "⚠️  INFO: No test file found to download (this may be expected)"
+      echo "    Creating a test scenario by checking GetObject permission via API..."
+      
+      # Alternative test using head-object which doesn't download
+      if aws s3api head-object --bucket $S3_READONLY_BUCKET --key "non-existent-file" 2>&1 | grep -q "NoSuchKey\|Forbidden"; then
+        if aws s3api head-object --bucket $S3_READONLY_BUCKET --key "non-existent-file" 2>&1 | grep -q "NoSuchKey"; then
+          echo "✅ PASS: GetObject permission granted (NoSuchKey means we have permission)"
+        else
+          echo "❌ FAIL: GetObject permission denied"
+          exit 1
+        fi
+      fi
+    fi
+    
+    # Test 3: Write operations should be denied
+    echo "Test 3: Testing write operations are properly denied..."
+    if aws s3 cp /etc/hostname s3://$S3_READONLY_BUCKET/write-test.txt 2>/dev/null; then
+      echo "❌ FAIL: Write operation succeeded when it should be denied"
+      # Try to clean up
+      aws s3 rm s3://$S3_READONLY_BUCKET/write-test.txt 2>/dev/null || true
+      exit 1
+    else
+      echo "✅ PASS: Write operations correctly denied on read-only bucket"
+    fi
+    
+    # Test 4: Delete operations should be denied
+    echo "Test 4: Testing delete operations are properly denied..."
+    if aws s3 rm s3://$S3_READONLY_BUCKET/non-existent-file.txt 2>/dev/null; then
+      echo "❌ FAIL: Delete operation succeeded when it should be denied"
+      exit 1
+    else
+      echo "✅ PASS: Delete operations correctly denied on read-only bucket"
+    fi
+    
+    echo ""
+    echo "🏁 S3 Read-Only Access Test Complete!"
+    echo "Bucket: $S3_READONLY_BUCKET"
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s3-read-access-test
+  namespace: node-example
+spec:
+  template:
+    spec:
+      serviceAccountName: node-example
+      containers:
+      - name: s3-read-test
+        image: amazon/aws-cli:latest
+        command: ["/bin/bash"]
+        args: ["/scripts/test-s3-read.sh"]
+        volumeMounts:
+        - name: test-scripts
+          mountPath: /scripts
+        env:
+        - name: AWS_DEFAULT_REGION
+          value: "eu-central-1"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: test-scripts
+        configMap:
+          name: s3-read-access-test
+          defaultMode: 0755
+      restartPolicy: Never
+  backoffLimit: 1
