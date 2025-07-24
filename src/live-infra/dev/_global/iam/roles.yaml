@@ -8,52 +8,20 @@ ${name_prefix}-admin:
   max_session_duration: 43200  # 12 hours
   managed_policies:
     - AdministratorAccess
-  allowed_ips: []  # Add IP restrictions here if needed
-
-${name_prefix}-developer:
-  description: "Developer role with EKS and application access"
-  require_mfa: true
-  max_session_duration: 28800  # 8 hours
-  managed_policies:
-    - PowerUserAccess
   custom_policies:
-    - eks-developer
-    - rds-access
-  inline_policies:
-    deny-sensitive-actions:
-      statements:
-        - Effect: "Deny"
-          Action:
-            - "iam:*"
-            - "organizations:*"
-            - "account:*"
-          Resource: "*"
+    - assume-app-role
+  allowed_ips: []  # Add IP restrictions here if needed
+  eks_access: "admin"  # system:masters group in Kubernetes
 
-${name_prefix}-readonly:
-  description: "Read-only role for auditing and monitoring"
+${name_prefix}-tester:
+  description: "Tester role for Sword Health with read-only access"
   require_mfa: false
   max_session_duration: 14400  # 4 hours
   managed_policies:
     - ReadOnlyAccess
-
-# Application roles (for IRSA - IAM Roles for Service Accounts)
-${name_prefix}-node-app-role:
-  description: "Role for node-example application pods in EKS"
-  require_mfa: false
-  trusted_entities:
-    - "arn:aws:iam::${account_id}:root"  # Will be updated with OIDC provider after EKS creation
   custom_policies:
-    - s3-app-access
-    - sqs-app-access
-    - rds-app-access
-  inline_policies:
-    k8s-api-access:
-      statements:
-        - Effect: "Allow"
-          Action:
-            - "eks:DescribeCluster"
-          Resource:
-            - "arn:aws:eks:*:${account_id}:cluster/${name_prefix}-eks-cluster"
+    - assume-app-role
+  eks_access: "tester"  # read-only-users group in Kubernetes
 
 # Infrastructure automation roles
 ${name_prefix}-terraform-role:

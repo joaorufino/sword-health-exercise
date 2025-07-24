@@ -11,15 +11,15 @@ joao.rufino@outlook.pt:
     Team: "Platform"
     Access: "Admin"
 
-# Developer users (add more as needed)
+# Test users (add more as needed)
 dev.user@swordhealth.com:
   groups:
-    - developers       # Can assume developer and readonly roles
+    - readonly-users   # Can assume tester role
   create_login_profile: true
   create_access_keys: false
   tags:
     Team: "Development"
-    Access: "Developer"
+    Access: "Tester"
 
 # Read-only users for auditing/monitoring
 audit.user@swordhealth.com:

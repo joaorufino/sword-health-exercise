@@ -1,0 +1,21 @@
+extends layout
+
+block content
+  h1= title
+  p Welcome to the Cloud Services Demo App
+  
+  .services
+    h2 Available Services
+    ul
+      li
+        a(href='/users') MySQL Database Users
+        p Fetch and manage users from MySQL database
+      li
+        a(href='/kubernetes') Kubernetes Pod Listing
+        p List pods in any namespace (requires cluster access)
+      li
+        a(href='/s3') S3 Bucket Access
+        p Browse S3 buckets and objects with different permissions
+      li
+        a(href='/sqs') SQS Message Queue
+        p Send and receive messages from SQS queue

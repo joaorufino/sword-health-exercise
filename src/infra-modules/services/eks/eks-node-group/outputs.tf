@@ -43,3 +43,29 @@ output "node_group_role_name" {
   description = "Name of the IAM role used by the node groups"
   value       = aws_iam_role.node_group.name
 }
+
+output "node_group_resources" {
+  description = "Resources associated with the EKS node groups"
+  value = {
+    for name, ng in aws_eks_node_group.main :
+    name => ng.resources
+  }
+}
+
+output "cluster_security_group_id" {
+  description = "The cluster security group ID created by EKS"
+  value       = data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id
+}
+
+output "node_group_security_group_ids" {
+  description = "Security group IDs from node group resources"
+  value = {
+    for name, ng in aws_eks_node_group.main :
+    name => try(ng.resources[0].remote_access_security_group_id, null)
+  }
+}
+
+output "node_group_primary_security_group_id" {
+  description = "The primary security group ID (cluster security group)"
+  value       = data.aws_eks_cluster.cluster.vpc_config[0].cluster_security_group_id
+}

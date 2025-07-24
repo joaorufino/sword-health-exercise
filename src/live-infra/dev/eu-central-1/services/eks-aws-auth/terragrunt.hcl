@@ -2,6 +2,44 @@ include "root" {
   path = find_in_parent_folders("root.hcl")
 }
 
+terraform {
+  source = "${get_repo_root()}/src/infra-modules/services/eks/eks-aws-auth"
+}
+
+# Dependencies
+dependency "eks_cluster" {
+  config_path = "../eks-control-plane"
+  
+  mock_outputs = {
+    cluster_name = "sword-health-dev-eks"
+  }
+}
+
+dependency "eks_node_group" {
+  config_path = "../eks-node-group"
+  
+  mock_outputs = {
+    node_group_role_arn = "arn:aws:iam::503132503263:role/sword-health-dev-eks-node-group-role"
+  }
+}
+
+dependency "iam" {
+  config_path = "../../../_global/iam"
+  
+  mock_outputs = {
+    eks_role_mappings = {
+      "sword-health-admin" = {
+        arn = "arn:aws:iam::503132503263:role/sword-health-admin"
+        eks_access = "admin"
+      }
+      "sword-health-tester" = {
+        arn = "arn:aws:iam::503132503263:role/sword-health-tester"
+        eks_access = "tester"
+      }
+    }
+  }
+}
+
 locals {
   # Load account and common variables
   account_vars = read_terragrunt_config(find_in_parent_folders("account.hcl"))
@@ -10,13 +48,16 @@ locals {
   
   # Extract commonly used variables
   account_name = local.account_vars.locals.account_name
-  account_id   = local.common_vars.locals.account_ids[local.account_name]
+  accounts     = jsondecode(file(find_in_parent_folders("accounts.json")))
+  account_id   = local.accounts[local.account_name].id
   name_prefix  = local.common_vars.locals.name_prefix
   aws_region   = local.region_vars.locals.aws_region
-}
-
-terraform {
-  source = "${get_repo_root()}/src/infra-modules/services/eks/eks-aws-auth"
+  
+  # Map EKS access levels to Kubernetes RBAC groups
+  eks_access_to_rbac_groups = {
+    "admin"  = ["system:masters"]
+    "tester" = ["read-only-users"]
+  }
 }
 
 # Configure the kubernetes provider to connect to the EKS cluster
@@ -40,23 +81,6 @@ data "aws_eks_cluster_auth" "main" {
 EOF
 }
 
-# Dependencies
-dependency "eks_cluster" {
-  config_path = "../eks-control-plane"
-  
-  mock_outputs = {
-    cluster_name = "${local.name_prefix}-${local.account_name}-eks"
-  }
-}
-
-dependency "eks_node_group" {
-  config_path = "../eks-node-group"
-  
-  mock_outputs = {
-    node_group_role_arn = "arn:aws:iam::${local.account_id}:role/${local.name_prefix}-${local.account_name}-eks-node-group-role"
-  }
-}
-
 # ---------------------------------------------------------------------------------------------------------------------
 # MODULE PARAMETERS
 # ---------------------------------------------------------------------------------------------------------------------
@@ -69,8 +93,16 @@ inputs = {
   
   # Admin roles - get system:masters access
   admin_role_names = [
-    "${local.name_prefix}-admin"
+    for name, role in dependency.iam.outputs.eks_role_mappings :
+    name if role.eks_access == "admin"
   ]
+  
+  # Additional role mappings based on IAM configuration
+  iam_role_to_rbac_group_mappings = {
+    for name, role in dependency.iam.outputs.eks_role_mappings :
+    role.arn => local.eks_access_to_rbac_groups[role.eks_access]
+    if contains(keys(local.eks_access_to_rbac_groups), role.eks_access)
+  }
   
   # Labels for the ConfigMap
   config_map_labels = {

@@ -17,6 +17,17 @@ variable "admin_role_names" {
   default     = []
 }
 
+variable "iam_role_to_rbac_group_mappings" {
+  description = "Map of IAM role ARNs to Kubernetes RBAC groups"
+  type        = map(list(string))
+  default     = {}
+  # Example:
+  # {
+  #   "arn:aws:iam::123456789012:role/developer" = ["developers"]
+  #   "arn:aws:iam::123456789012:role/readonly" = ["read-only-users"]
+  # }
+}
+
 variable "iam_user_mappings" {
   description = "Map of IAM user ARNs to list of Kubernetes groups they should belong to"
   type        = map(list(string))

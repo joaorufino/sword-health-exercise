@@ -1,0 +1,27 @@
+{
+  "name": "example",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^0.12.0",
+    "@aws-sdk/client-rds": "^3.600.0",
+    "@aws-sdk/rds-signer": "^3.600.0",
+    "@aws-sdk/client-secrets-manager": "^3.600.0",
+    "@aws-sdk/client-s3": "^3.600.0",
+    "@aws-sdk/client-sqs": "^3.600.0",
+    "body-parser": "^1.18.3",
+    "cookie-parser": "~1.4.3",
+    "debug": "^4.1.1",
+    "dotenv": "^8.2.0",
+    "express": "^4.16.4",
+    "jade": "~1.11.0",
+    "less-middleware": "^3.1.0",
+    "morgan": "^1.9.1",
+    "mysql2": "^2.3.3",
+    "serve-favicon": "^2.5.0",
+    "winston": "^3.8.2"
+  }
+}

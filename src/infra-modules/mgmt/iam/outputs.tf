@@ -10,6 +10,26 @@ output "roles" {
   }
 }
 
+output "role_arns" {
+  description = "Map of role names to ARNs"
+  value = {
+    for name, role in aws_iam_role.roles :
+    name => role.arn
+  }
+}
+
+output "eks_role_mappings" {
+  description = "IAM roles with their EKS access levels"
+  value = {
+    for name, config in var.roles :
+    name => {
+      arn        = aws_iam_role.roles[name].arn
+      eks_access = lookup(config, "eks_access", null)
+    }
+    if lookup(config, "eks_access", null) != null
+  }
+}
+
 output "groups" {
   description = "Created IAM groups"
   value = {

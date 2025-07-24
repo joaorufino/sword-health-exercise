@@ -56,6 +56,15 @@ dependency "sqs" {
   }
 }
 
+dependency "rds" {
+  config_path = "../../storage/rds-mysql"
+  
+  mock_outputs = {
+    resource_id = "db-MOCKRESOURCEID"
+    iam_auth_enabled = true
+  }
+}
+
 # Input variables
 inputs = {
   app_name             = "node-example"
@@ -84,6 +93,11 @@ inputs = {
   # SQS configuration
   sqs_queue_arn   = dependency.sqs.outputs.queue_arn
   sqs_permissions = local.common_vars.locals.app_infrastructure.sqs_permissions
+  
+  # RDS IAM authentication configuration
+  enable_rds_iam_auth = dependency.rds.outputs.iam_auth_enabled
+  rds_resource_id     = dependency.rds.outputs.resource_id
+  rds_db_username     = local.common_vars.locals.rds_iam_db_username
   
   # Tags
   tags = merge(

@@ -1,0 +1,211 @@
+extends layout
+
+block content
+  h1= title
+  p Demonstrate S3 bucket access with different permissions
+  
+  .container
+    .bucket-info
+      h2 Configured Buckets
+      ul
+        li
+          strong Read-Only Bucket: 
+          span #{readOnlyBucket}
+          |  (Can list and get objects)
+        li
+          strong Read-Write Bucket: 
+          span #{readWriteBucket}
+          |  (Can write objects)
+    
+    #error-message.error(style='display:none')
+    #success-message.success(style='display:none')
+    
+    .section
+      h2 Read-Only Bucket Operations
+      button#list-read-only List Objects in Read-Only Bucket
+      
+      #read-only-objects(style='display:none')
+        h3 Objects in #{readOnlyBucket}
+        table#read-only-table
+          thead
+            tr
+              th Key
+              th Size
+              th Last Modified
+              th Actions
+          tbody
+    
+    .section
+      h2 Read-Write Bucket Operations
+      .upload-section
+        h3 Upload File to Read-Write Bucket
+        form#upload-form
+          .form-group
+            label(for='fileName') File Name:
+            input#fileName(type='text', name='fileName', placeholder='example.txt')
+          .form-group
+            label(for='fileContent') File Content:
+            textarea#fileContent(name='fileContent', rows='4', cols='50', placeholder='Enter file content')
+          button(type='submit') Upload File
+      
+      button#list-read-write List Objects in Read-Write Bucket
+      
+      #read-write-objects(style='display:none')
+        h3 Objects in #{readWriteBucket}
+        table#read-write-table
+          thead
+            tr
+              th Key
+              th Size
+              th Last Modified
+          tbody
+  
+  script.
+    const errorDiv = document.getElementById('error-message');
+    const successDiv = document.getElementById('success-message');
+    const readOnlyBucket = '#{readOnlyBucket}';
+    const readWriteBucket = '#{readWriteBucket}';
+    
+    // List objects in read-only bucket
+    document.getElementById('list-read-only').addEventListener('click', async function() {
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+      const tbody = document.querySelector('#read-only-table tbody');
+      tbody.innerHTML = '';
+      
+      try {
+        const response = await fetch('/s3/api/list-objects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bucketName: readOnlyBucket })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          if (data.objects.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">No objects in bucket</td></tr>';
+          } else {
+            data.objects.forEach(object => {
+              const row = tbody.insertRow();
+              row.insertCell(0).textContent = object.key;
+              row.insertCell(1).textContent = object.size;
+              row.insertCell(2).textContent = new Date(object.lastModified).toLocaleString();
+              const actionsCell = row.insertCell(3);
+              const downloadBtn = document.createElement('button');
+              downloadBtn.textContent = 'Download';
+              downloadBtn.onclick = () => downloadFile(object.key);
+              actionsCell.appendChild(downloadBtn);
+            });
+          }
+          document.getElementById('read-only-objects').style.display = 'block';
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    });
+    
+    // List objects in read-write bucket
+    document.getElementById('list-read-write').addEventListener('click', async function() {
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+      const tbody = document.querySelector('#read-write-table tbody');
+      tbody.innerHTML = '';
+      
+      try {
+        const response = await fetch('/s3/api/list-objects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bucketName: readWriteBucket })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          if (data.objects.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center">No objects in bucket</td></tr>';
+          } else {
+            data.objects.forEach(object => {
+              const row = tbody.insertRow();
+              row.insertCell(0).textContent = object.key;
+              row.insertCell(1).textContent = object.size;
+              row.insertCell(2).textContent = new Date(object.lastModified).toLocaleString();
+            });
+          }
+          document.getElementById('read-write-objects').style.display = 'block';
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    });
+    
+    // Upload file
+    document.getElementById('upload-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+      
+      const fileName = document.getElementById('fileName').value;
+      const fileContent = document.getElementById('fileContent').value;
+      
+      if (!fileName || !fileContent) {
+        errorDiv.textContent = 'Please provide both file name and content';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      try {
+        const response = await fetch('/s3/api/upload-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName, fileContent })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          successDiv.textContent = `File "${data.fileName}" uploaded successfully to ${data.bucketName}`;
+          successDiv.style.display = 'block';
+          document.getElementById('fileName').value = '';
+          document.getElementById('fileContent').value = '';
+          // Refresh the read-write bucket list
+          document.getElementById('list-read-write').click();
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    });
+    
+    // Download file from read-only bucket
+    async function downloadFile(key) {
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+      
+      try {
+        const response = await fetch(`/s3/api/download-file/${encodeURIComponent(key)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          // Show content in an alert for simplicity
+          alert(`File Content:\n\n${data.content}`);
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    }

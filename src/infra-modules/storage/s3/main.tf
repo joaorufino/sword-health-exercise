@@ -87,6 +87,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "main" {
       id     = rule.key
       status = rule.value.enabled ? "Enabled" : "Disabled"
 
+      # Filter is required - apply to all objects by default if no prefix specified
+      filter {
+        prefix = lookup(rule.value, "prefix", "")
+      }
+
       dynamic "transition" {
         for_each = lookup(rule.value, "transitions", [])
         content {

@@ -61,6 +61,7 @@ variable "lifecycle_rules" {
   description = "Map of lifecycle rules for automatic object management. Each rule can specify transitions to different storage classes and expiration."
   type = map(object({
     enabled = bool
+    prefix  = optional(string, "") # Object key prefix to apply the rule to (empty string applies to all objects)
     transitions = optional(list(object({
       days          = number
       storage_class = string

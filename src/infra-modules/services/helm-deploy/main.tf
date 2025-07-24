@@ -49,6 +49,11 @@ resource "kubernetes_namespace" "main" {
     )
     annotations = var.namespace_annotations
   }
+
+  lifecycle {
+    # Prevent accidental namespace deletion
+    prevent_destroy = true
+  }
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -74,6 +79,11 @@ resource "kubernetes_service_account" "main" {
       } : {},
       var.service_account_annotations
     )
+  }
+
+  lifecycle {
+    # Update in-place rather than recreate to preserve tokens
+    create_before_destroy = false
   }
 
   depends_on = [kubernetes_namespace.main]
@@ -102,6 +112,12 @@ resource "helm_release" "main" {
   max_history     = var.max_history
   recreate_pods   = var.recreate_pods
   force_update    = var.force_update
+
+  # Upgrade behavior settings
+  replace      = var.replace_on_change
+  skip_crds    = var.skip_crds
+  reset_values = var.reset_values
+  reuse_values = var.reuse_values
 
   # Values
   values = var.values_files

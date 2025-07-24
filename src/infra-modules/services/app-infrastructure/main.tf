@@ -145,6 +145,16 @@ data "aws_iam_policy_document" "rds_access" {
       "arn:aws:rds-db:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:dbuser:${var.rds_resource_id}/${var.rds_db_username}"
     ]
   }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "rds:DescribeDBInstances"
+    ]
+    resources = [
+      "arn:aws:rds:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:db:*"
+    ]
+  }
 }
 
 resource "aws_iam_policy" "rds_access" {

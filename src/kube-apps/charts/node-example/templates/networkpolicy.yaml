@@ -13,8 +13,14 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # ONLY allow traffic from ALB/Ingress controller
-    # This denies access from any other pod in the cluster (REQ-SEC-003-POD-ISOLATION)
+    # Allow traffic from ALB (which comes from VPC CIDR)
+    - from:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCidr | default "10.0.0.0/16" }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.service.targetPort | default .Values.service.port }}
+    # Allow traffic from ALB controller for configuration
     - from:
         - namespaceSelector:
             matchLabels:
@@ -60,4 +66,10 @@ spec:
     # Allow communication within the namespace
     - to:
         - podSelector: {}
+    # Allow responses back to ALB (in VPC)
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.vpcCidr | default "10.0.0.0/16" }}
+      ports:
+        - protocol: TCP
 {{- end }}

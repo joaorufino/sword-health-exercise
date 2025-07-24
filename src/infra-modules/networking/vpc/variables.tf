@@ -261,3 +261,9 @@ variable "data_subnet_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "map_public_ip_on_launch" {
+  description = "Whether to auto-assign public IP addresses to instances launched in public subnets"
+  type        = bool
+  default     = false
+}

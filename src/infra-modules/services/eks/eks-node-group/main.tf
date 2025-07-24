@@ -22,6 +22,11 @@ data "aws_partition" "current" {}
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
+# EKS Control Plane data source to get cluster security group
+data "aws_eks_cluster" "cluster" {
+  name = var.cluster_name
+}
+
 # ---------------------------------------------------------------------------------------------------------------------
 # MANAGED NODE GROUP
 # ---------------------------------------------------------------------------------------------------------------------

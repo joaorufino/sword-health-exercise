@@ -161,3 +161,28 @@ variable "force_update" {
   type        = bool
   default     = false
 }
+
+# Upgrade Behavior
+variable "replace_on_change" {
+  description = "Replace the release if any change occurs"
+  type        = bool
+  default     = false
+}
+
+variable "skip_crds" {
+  description = "Skip CRD installation during upgrade"
+  type        = bool
+  default     = false
+}
+
+variable "reset_values" {
+  description = "Reset values to defaults when upgrading"
+  type        = bool
+  default     = false
+}
+
+variable "reuse_values" {
+  description = "Reuse values from previous release when upgrading"
+  type        = bool
+  default     = false
+}

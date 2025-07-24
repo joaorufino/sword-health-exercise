@@ -12,8 +12,13 @@ variable "groups" {
 
 variable "users" {
   description = "Map of IAM users to create"
-  type        = any # Using any to handle YAML parsing flexibility
-  default     = {}
+  type = map(object({
+    groups               = optional(list(string), [])
+    create_login_profile = optional(bool, false)
+    create_access_keys   = optional(bool, false)
+    tags                 = optional(map(string), {})
+  }))
+  default = {}
 }
 
 variable "password_length" {

@@ -1,0 +1,73 @@
+extends layout
+
+block content
+  h1= title
+  p List pods in a Kubernetes namespace
+  
+  .form-container
+    form#k8s-form
+      .form-group
+        label(for='namespace') Namespace:
+        input#namespace(type='text', name='namespace', value='kube-system', placeholder='Enter namespace')
+      button(type='submit') List Pods
+  
+  #error-message.error(style='display:none')
+  
+  #results(style='display:none')
+    h2 Pods in <span id="namespace-name"></span>
+    table#pods-table
+      thead
+        tr
+          th Name
+          th Ready
+          th Status
+          th Restarts
+          th Age
+      tbody
+  
+  script.
+    document.getElementById('k8s-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const namespace = document.getElementById('namespace').value;
+      const errorDiv = document.getElementById('error-message');
+      const resultsDiv = document.getElementById('results');
+      const tbody = document.querySelector('#pods-table tbody');
+      
+      errorDiv.style.display = 'none';
+      resultsDiv.style.display = 'none';
+      tbody.innerHTML = '';
+      
+      try {
+        const response = await fetch('/kubernetes/api/list-pods', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ namespace: namespace })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          document.getElementById('namespace-name').textContent = data.namespace;
+          
+          data.pods.forEach(pod => {
+            const row = tbody.insertRow();
+            row.insertCell(0).textContent = pod.name;
+            row.insertCell(1).textContent = pod.ready;
+            row.insertCell(2).textContent = pod.status;
+            row.insertCell(3).textContent = pod.restarts;
+            row.insertCell(4).textContent = pod.age;
+          });
+          
+          resultsDiv.style.display = 'block';
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    });

@@ -38,7 +38,24 @@ dependency "vpc" {
   }
 }
 
-# No need for EKS dependency - we'll use VPC private security group
+dependency "eks" {
+  config_path = "../../services/eks-control-plane"
+  
+  mock_outputs = {
+    cluster_security_group_id = "sg-87654321"
+  }
+}
+
+dependency "eks_node_group" {
+  config_path = "../../services/eks-node-group"
+  
+  mock_outputs = {
+    node_group_primary_security_group_id = "sg-12345678"
+    node_group_security_group_ids = {
+      general = ["sg-12345678"]
+    }
+  }
+}
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Override parameters for this environment
@@ -48,7 +65,7 @@ dependency "vpc" {
 inputs = {
   # Environment-specific configuration
   identifier = "${local.name_prefix}-${local.account_name}-mysql"
-  instance_class = "db.t3.small"  # Small instance for dev that supports IAM auth
+  instance_class = "db.t3.micro"  # Small instance for dev that supports IAM auth
   
   # Storage
   allocated_storage          = 20   # Start small for dev
@@ -62,9 +79,16 @@ inputs = {
   subnet_ids          = dependency.vpc.outputs.data_subnet_ids
   
   # Allow access from private subnet (where EKS nodes and applications run)
-  allowed_security_group_ids = [
-    dependency.vpc.outputs.private_security_group_id
-  ]
+  # and from EKS cluster security group (for pods)
+  # and from EKS node group security group (for node-level access)
+  allowed_security_group_ids = concat(
+    [
+      dependency.vpc.outputs.private_security_group_id,
+      dependency.eks.outputs.cluster_security_group_id,
+    ],
+    # Include the primary node group security group if it exists
+    dependency.eks_node_group.outputs.node_group_primary_security_group_id != null ? [dependency.eks_node_group.outputs.node_group_primary_security_group_id] : []
+  )
   
   # For dev, we can disable VPC-wide access since we're using security groups
   allow_from_vpc_cidr = false

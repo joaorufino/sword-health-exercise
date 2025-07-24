@@ -31,8 +31,17 @@ resource "kubernetes_config_map" "aws_auth" {
   }
 
   data = {
-    mapRoles = yamlencode(concat(local.worker_node_mappings, local.admin_role_mappings))
+    mapRoles = yamlencode(concat(
+      local.worker_node_mappings,
+      local.admin_role_mappings,
+      local.additional_role_mappings
+    ))
     mapUsers = length(var.iam_user_mappings) > 0 ? yamlencode(local.iam_user_mappings) : ""
+  }
+
+  lifecycle {
+    # Prevent accidental deletion of the critical aws-auth ConfigMap
+    prevent_destroy = true
   }
 }
 
@@ -62,11 +71,20 @@ locals {
     }
   ]
 
+  # Additional role mappings from the dynamic mapping variable
+  additional_role_mappings = [
+    for arn, groups in var.iam_role_to_rbac_group_mappings : {
+      rolearn  = arn
+      username = replace(arn, "/.*\\/(.*)/", "$1")
+      groups   = groups
+    }
+  ]
+
   # IAM user mappings (optional)
   iam_user_mappings = [
     for arn, groups in var.iam_user_mappings : {
       userarn  = arn
-      username = replace(arn, "/.*/(.*)/", "$1")
+      username = replace(arn, "/.*\\/(.*)/", "$1")
       groups   = groups
     }
   ]

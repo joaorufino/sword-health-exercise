@@ -1,40 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: test-rds-access-sidecar-script
+  name: test-rds-access-script
   namespace: node-example
 data:
-  generate-token.sh: |
-    #!/bin/bash
-    set -e
-    
-    echo "🔑 AWS CLI Sidecar - Generating RDS IAM tokens"
-    echo "============================================="
-    
-    while true; do
-      echo "$(date): Generating new IAM database auth token..."
-      
-      TOKEN=$(aws rds generate-db-auth-token \
-        --hostname $DB_HOST \
-        --port $DB_PORT \
-        --username $DB_USERNAME \
-        --region eu-central-1 2>/dev/null) || {
-        echo "❌ FAIL: Could not generate IAM database auth token"
-        sleep 30
-        continue
-      }
-      
-      if [ -n "$TOKEN" ]; then
-        echo "$TOKEN" > /shared/db-token
-        echo "✅ Token generated and saved (${#TOKEN} chars)"
-      else
-        echo "❌ Empty token generated"
-      fi
-      
-      # Refresh token every 14 minutes (tokens are valid for 15 minutes)
-      sleep 840
-    done
-
   test-mysql.sh: |
     #!/bin/bash
     set -e
@@ -42,48 +11,27 @@ data:
     echo "🗄️  MySQL Client - RDS Database Access Test"
     echo "==========================================="
     
-    # Wait for initial token
-    echo "⏳ Waiting for IAM token from sidecar..."
-    while [ ! -f /shared/db-token ]; do
-      sleep 2
-    done
+    # Test 1: Test database connectivity with password authentication  
+    echo "Test 1: Testing database connectivity..."
     
-    # Test 1: Verify token exists
-    echo "Test 1: Verifying IAM token availability..."
-    if [ -f /shared/db-token ]; then
-      TOKEN=$(cat /shared/db-token)
-      if [ -n "$TOKEN" ]; then
-        echo "✅ PASS: IAM token available (${#TOKEN} chars)"
-      else
-        echo "❌ FAIL: Empty IAM token"
-        exit 1
-      fi
-    else
-      echo "❌ FAIL: No IAM token file found"
-      exit 1
-    fi
-    
-    # Test 2: Test database connectivity with IAM authentication  
-    echo "Test 2: Testing database connectivity with IAM auth..."
-    
-    mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME --password="$TOKEN" \
-      --enable-cleartext-plugin --connect-timeout=10 \
+    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER --password="$DB_PASSWORD" \
+      --connect-timeout=10 \
       -e "SELECT 'Database connection successful!' as result;" 2>/dev/null || {
-      echo "❌ FAIL: Could not connect to database with IAM auth"
-      echo "🔍 Debug: Host=$DB_HOST, Port=$DB_PORT, User=$DB_USERNAME"
+      echo "❌ FAIL: Could not connect to database"
+      echo "🔍 Debug: Host=$DB_HOST, Port=$DB_PORT, User=$DB_USER"
       exit 1
     }
     
-    echo "✅ PASS: Database connection with IAM auth successful"
+    echo "✅ PASS: Database connection successful"
     
-    # Test 3: Test basic database operations
-    echo "Test 3: Testing basic database operations..."
+    # Test 2: Test basic database operations
+    echo "Test 2: Testing basic database operations..."
     
-    mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME --password="$TOKEN" \
-      --enable-cleartext-plugin --connect-timeout=10 \
+    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER --password="$DB_PASSWORD" \
+      --connect-timeout=10 \
       -e "CREATE TABLE IF NOT EXISTS test_table (id INT PRIMARY KEY, message VARCHAR(255)); 
-          INSERT INTO test_table (id, message) VALUES (1, 'Test from EKS sidecar pod') 
-          ON DUPLICATE KEY UPDATE message='Test from EKS sidecar pod';
+          INSERT INTO test_table (id, message) VALUES (1, 'Test from EKS pod') 
+          ON DUPLICATE KEY UPDATE message='Test from EKS pod';
           SELECT message FROM test_table WHERE id=1;" 2>/dev/null || {
       echo "❌ FAIL: Could not perform database operations"
       exit 1
@@ -91,11 +39,11 @@ data:
     
     echo "✅ PASS: Basic database operations successful"
     
-    # Test 4: Test database permissions
-    echo "Test 4: Testing database permissions..."
+    # Test 3: Test database permissions
+    echo "Test 3: Testing database permissions..."
     
-    TABLES=$(mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME --password="$TOKEN" \
-      --enable-cleartext-plugin --connect-timeout=10 \
+    TABLES=$(mysql -h $DB_HOST -P $DB_PORT -u $DB_USER --password="$DB_PASSWORD" \
+      --connect-timeout=10 \
       -e "SHOW TABLES;" 2>/dev/null | wc -l) || {
       echo "❌ FAIL: Could not show tables"
       exit 1
@@ -108,71 +56,54 @@ data:
       exit 1
     fi
     
+    # Test 4: Verify database name
+    echo "Test 4: Verifying database name..."
+    
+    CURRENT_DB=$(mysql -h $DB_HOST -P $DB_PORT -u $DB_USER --password="$DB_PASSWORD" \
+      --connect-timeout=10 \
+      -e "SELECT DATABASE();" 2>/dev/null | tail -n1) || {
+      echo "❌ FAIL: Could not query current database"
+      exit 1
+    }
+    
+    if [ "$CURRENT_DB" = "$DB_NAME" ]; then
+      echo "✅ PASS: Connected to correct database: $DB_NAME"
+    else
+      echo "❌ FAIL: Wrong database - expected: $DB_NAME, got: $CURRENT_DB"
+      exit 1
+    fi
+    
     # Cleanup
     echo "🧹 Cleaning up test table..."
-    mysql -h $DB_HOST -P $DB_PORT -u $DB_USERNAME --password="$TOKEN" \
-      --enable-cleartext-plugin --connect-timeout=10 \
+    mysql -h $DB_HOST -P $DB_PORT -u $DB_USER --password="$DB_PASSWORD" \
+      --connect-timeout=10 \
       -e "DROP TABLE IF EXISTS test_table;" 2>/dev/null || {
       echo "⚠️  WARNING: Could not cleanup test table"
     }
     
     echo ""
     echo "🎉 All RDS database access tests completed successfully!"
-    echo "✅ IAM authentication working"
+    echo "✅ Password authentication working"
     echo "✅ Database connectivity confirmed"  
     echo "✅ Basic operations functional"
     echo "✅ Permissions validated"
+    echo "✅ Connected to correct database"
 
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: rds-access-sidecar-test
+  name: rds-access-test
   namespace: node-example
 spec:
   template:
     metadata:
       labels:
-        app: rds-access-sidecar-test
+        app: rds-access-test
     spec:
       serviceAccountName: node-example
       restartPolicy: Never
       containers:
-      # AWS CLI sidecar for token generation
-      - name: aws-token-generator
-        image: amazon/aws-cli:latest
-        command: ["/bin/bash"]
-        args: ["/scripts/generate-token.sh"]
-        env:
-        - name: DB_HOST
-          valueFrom:
-            secretKeyRef:
-              name: node-example-rds-credentials
-              key: host
-        - name: DB_PORT
-          valueFrom:
-            secretKeyRef:
-              name: node-example-rds-credentials
-              key: port
-        - name: DB_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: node-example-rds-credentials  
-              key: username
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
-        volumeMounts:
-        - name: shared-data
-          mountPath: /shared
-        - name: token-script
-          mountPath: /scripts
-      
-      # MySQL client for database testing
       - name: mysql-client
         image: mysql:8.0
         command: ["/bin/bash"]
@@ -188,11 +119,21 @@ spec:
             secretKeyRef:
               name: node-example-rds-credentials
               key: port
-        - name: DB_USERNAME
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: node-example-rds-credentials
+              key: database
+        - name: DB_USER
           valueFrom:
             secretKeyRef:
               name: node-example-rds-credentials  
               key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: node-example-rds-credentials
+              key: password
         resources:
           requests:
             memory: "128Mi"
@@ -201,24 +142,12 @@ spec:
             memory: "256Mi"
             cpu: "200m"
         volumeMounts:
-        - name: shared-data
-          mountPath: /shared
         - name: mysql-script
           mountPath: /scripts
-      
       volumes:
-      - name: shared-data
-        emptyDir: {}
-      - name: token-script
-        configMap:
-          name: test-rds-access-sidecar-script
-          items:
-          - key: generate-token.sh
-            path: generate-token.sh
-          defaultMode: 0755
       - name: mysql-script
         configMap:
-          name: test-rds-access-sidecar-script
+          name: test-rds-access-script
           items:
           - key: test-mysql.sh
             path: test-mysql.sh

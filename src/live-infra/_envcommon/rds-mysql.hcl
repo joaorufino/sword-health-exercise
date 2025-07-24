@@ -29,4 +29,8 @@ inputs = {
   
   # IAM authentication
   iam_database_authentication_enabled = true
+  
+  # Apply changes immediately instead of waiting for maintenance window
+  # This ensures IAM authentication is enabled right away
+  apply_immediately = true
 }

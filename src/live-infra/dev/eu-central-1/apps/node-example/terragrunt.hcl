@@ -142,6 +142,13 @@ inputs = {
       s3_bucket           = dependency.s3_readwrite.outputs.bucket_name
       s3_readonly_bucket  = dependency.s3_readonly.outputs.bucket_name
       sqs_queue_url       = dependency.sqs.outputs.queue_url
+      # RDS configuration
+      rds_endpoint        = dependency.rds.outputs.endpoint
+      rds_port            = dependency.rds.outputs.port
+      rds_database_name   = dependency.rds.outputs.database_name
+      rds_username        = dependency.rds.outputs.master_username
+      # Network configuration
+      vpc_cidr            = local.common_vars.locals.vpc_cidrs[local.account_name]
     })
   ]
   

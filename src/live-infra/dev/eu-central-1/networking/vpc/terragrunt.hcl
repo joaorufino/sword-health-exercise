@@ -49,6 +49,9 @@ inputs = {
   # Disable data subnet internet access for security
   enable_data_subnet_internet_access = false
 
+  # Enable public IP assignment for instances in public subnets (needed for ALB)
+  map_public_ip_on_launch = true
+
   # Security group rules from YAML
   private_security_group_ingress_rules = local.security_groups_config.private_security_group_ingress_rules
   data_security_group_ingress_rules    = local.security_groups_config.data_security_group_ingress_rules

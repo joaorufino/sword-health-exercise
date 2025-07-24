@@ -68,7 +68,7 @@ env:
       secretKeyRef:
         name: node-example-rds-credentials
         key: database
-  - name: DB_USERNAME
+  - name: DB_USER  # Changed from DB_USERNAME to match app expectation
     valueFrom:
       secretKeyRef:
         name: node-example-rds-credentials
@@ -78,6 +78,8 @@ env:
       secretKeyRef:
         name: node-example-rds-credentials
         key: password
+  - name: USE_IAM_AUTH
+    value: "true"
 
 # Use IRSA service account
 serviceAccount:
@@ -93,3 +95,8 @@ rbac:
 # Disable probes as the application doesn't have health endpoints
 livenessProbe: {}
 readinessProbe: {}
+
+# Network Policy configuration
+networkPolicy:
+  enabled: true
+  vpcCidr: "${vpc_cidr}"

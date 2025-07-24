@@ -1,0 +1,161 @@
+extends layout
+
+block content
+  h1= title
+  p Send and receive messages from the configured SQS queue
+  
+  .container
+    .queue-info
+      p
+        strong Queue URL: 
+        span #{queueUrl}
+    .send-section
+      h2 Send Message
+      form#send-form
+        .form-group
+          label(for='message') Message:
+          textarea#message(name='message', rows='4', cols='50', placeholder='Enter your message here')
+        button(type='submit') Send Message
+    
+    .receive-section
+      h2 Receive Messages
+      button#receive-messages Receive Messages
+      button#clear-messages Clear Display
+    
+    #error-message.error(style='display:none')
+    #success-message.success(style='display:none')
+    
+    #messages-section(style='display:none')
+      h3 Received Messages (<span id="message-count">0</span>)
+      #messages-container
+  
+  script.
+    const errorDiv = document.getElementById('error-message');
+    const successDiv = document.getElementById('success-message');
+    const messagesSection = document.getElementById('messages-section');
+    const messagesContainer = document.getElementById('messages-container');
+    const messageCount = document.getElementById('message-count');
+    
+    document.getElementById('send-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const message = document.getElementById('message').value;
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+      
+      if (!message.trim()) {
+        errorDiv.textContent = 'Please enter a message';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      try {
+        const response = await fetch('/sqs/api/send-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message: message })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          successDiv.textContent = `Message sent successfully! ID: ${data.messageId}`;
+          successDiv.style.display = 'block';
+          document.getElementById('message').value = '';
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    });
+    
+    document.getElementById('receive-messages').addEventListener('click', async function() {
+      errorDiv.style.display = 'none';
+      successDiv.style.display = 'none';
+      
+      try {
+        const response = await fetch('/sqs/api/receive-messages');
+        const data = await response.json();
+        
+        if (data.success) {
+          messageCount.textContent = data.count;
+          
+          if (data.messages.length === 0) {
+            messagesContainer.innerHTML = '<p>No messages in queue</p>';
+          } else {
+            messagesContainer.innerHTML = '';
+            
+            data.messages.forEach(msg => {
+              const messageDiv = document.createElement('div');
+              messageDiv.className = 'message-item';
+              messageDiv.style.border = '1px solid #ccc';
+              messageDiv.style.padding = '10px';
+              messageDiv.style.margin = '10px 0';
+              
+              const content = document.createElement('p');
+              content.innerHTML = `<strong>Message:</strong> ${msg.body.message || msg.body}`;
+              messageDiv.appendChild(content);
+              
+              if (msg.body.timestamp) {
+                const timestamp = document.createElement('p');
+                timestamp.innerHTML = `<strong>Sent at:</strong> ${new Date(msg.body.timestamp).toLocaleString()}`;
+                messageDiv.appendChild(timestamp);
+              }
+              
+              const deleteBtn = document.createElement('button');
+              deleteBtn.textContent = 'Delete Message';
+              deleteBtn.onclick = () => deleteMessage(msg.receiptHandle, messageDiv);
+              messageDiv.appendChild(deleteBtn);
+              
+              messagesContainer.appendChild(messageDiv);
+            });
+          }
+          
+          messagesSection.style.display = 'block';
+        } else {
+          errorDiv.textContent = `Error: ${data.error}`;
+          errorDiv.style.display = 'block';
+        }
+      } catch (error) {
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+      }
+    });
+    
+    document.getElementById('clear-messages').addEventListener('click', function() {
+      messagesContainer.innerHTML = '';
+      messagesSection.style.display = 'none';
+      messageCount.textContent = '0';
+    });
+    
+    async function deleteMessage(receiptHandle, messageDiv) {
+      try {
+        const response = await fetch('/sqs/api/delete-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ receiptHandle: receiptHandle })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          messageDiv.remove();
+          const remaining = messagesContainer.children.length;
+          messageCount.textContent = remaining;
+          if (remaining === 0) {
+            messagesContainer.innerHTML = '<p>No messages in queue</p>';
+          }
+        } else {
+          alert(`Error deleting message: ${data.error}`);
+        }
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      }
+    }

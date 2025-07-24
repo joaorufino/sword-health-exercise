@@ -56,10 +56,12 @@ locals {
   # RDS configuration
   rds_engine_version = "8.0.35"
   rds_iam_database_authentication_enabled = true
+  rds_iam_db_username = "admin"  # Temporarily set to admin to create IAM user
 
   # Application configuration
-  node_example_image = "swordhealth/node-example:0.0.1"
-
+  #node_example_image = "swordhealth/node-example:0.0.1"
+  node_example_image = "niplodim/sword-health-exercise:0.0.4"
+  
   # S3 bucket names for application
   app_bucket_readwrite_name = "node-example"      # Will be suffixed with account name
   app_bucket_readonly_name  = "node-example"  # Will be suffixed with account name

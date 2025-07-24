@@ -183,6 +183,7 @@ resource "aws_db_instance" "main" {
   # IAM database authentication
   iam_database_authentication_enabled = var.iam_database_authentication_enabled
 
+
   # Deletion protection
   deletion_protection = var.deletion_protection
 
