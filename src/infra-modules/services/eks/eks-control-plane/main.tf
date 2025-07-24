@@ -15,6 +15,10 @@ terraform {
       source  = "hashicorp/tls"
       version = ">= 3.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.20"
+    }
   }
 }
 
@@ -74,6 +78,8 @@ resource "aws_cloudwatch_log_group" "eks" {
 
   tags = var.common_tags
 }
+
+# aws-auth ConfigMap is now managed by separate eks-aws-auth module
 
 # ---------------------------------------------------------------------------------------------------------------------
 # IAM ROLE FOR EKS CLUSTER

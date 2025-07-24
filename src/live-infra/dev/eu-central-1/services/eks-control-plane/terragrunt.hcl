@@ -26,6 +26,26 @@ terraform {
   source = include.envcommon.locals.base_source_url
 }
 
+# Configure the kubernetes provider to connect to the EKS cluster
+generate "kubernetes_provider" {
+  path      = "kubernetes_provider.tf"
+  if_exists = "overwrite_terragrunt"
+  contents  = <<EOF
+provider "kubernetes" {
+  host                   = aws_eks_cluster.main.endpoint
+  cluster_ca_certificate = base64decode(aws_eks_cluster.main.certificate_authority[0].data)
+  token                  = data.aws_eks_cluster_auth.main.token
+  experiments {
+    manifest_resource = true
+  }
+}
+
+data "aws_eks_cluster_auth" "main" {
+  name = aws_eks_cluster.main.name
+}
+EOF
+}
+
 # Dependencies
 dependency "vpc" {
   config_path = "../../networking/vpc"
@@ -66,4 +86,6 @@ inputs = {
   cluster_tags = {
     "kubernetes.io/cluster/${local.name_prefix}-${local.account_name}-eks" = "owned"
   }
+  
+# AWS Auth ConfigMap now managed by separate eks-aws-auth module
 }
