@@ -2,6 +2,13 @@ include "root" {
   path = find_in_parent_folders("root.hcl")
 }
 
+# Include the envcommon configuration for the component. The envcommon configuration contains settings that are common
+# for the component across all environments.
+include "envcommon" {
+  path   = "${dirname(find_in_parent_folders("root.hcl"))}/_envcommon/eks-control-plane.hcl"
+  expose = true
+}
+
 locals {
   # Load account and common variables
   account_vars = read_terragrunt_config(find_in_parent_folders("account.hcl"))
@@ -16,7 +23,7 @@ locals {
 }
 
 terraform {
-  source = "${get_repo_root()}/src/infra-modules/services/eks/eks-control-plane"
+  source = include.envcommon.locals.base_source_url
 }
 
 # Dependencies
@@ -25,44 +32,27 @@ dependency "vpc" {
   
   mock_outputs = {
     vpc_id              = "vpc-12345678"
-    vpc_cidr_block            = "10.0.0.0/16"
+    vpc_cidr_block      = "10.0.0.0/16"
     private_subnet_ids  = ["subnet-1", "subnet-2", "subnet-3"]
   }
 }
 
-# Input variables
+# ---------------------------------------------------------------------------------------------------------------------
+# Override parameters for this environment
+# ---------------------------------------------------------------------------------------------------------------------
+
+# These inputs get merged with the common inputs from the envcommon eks-control-plane.hcl
 inputs = {
+  # Environment-specific configuration
   cluster_name = "${local.name_prefix}-${local.account_name}-eks"
   vpc_id       = dependency.vpc.outputs.vpc_id
   vpc_cidr     = dependency.vpc.outputs.vpc_cidr_block
   subnet_ids   = dependency.vpc.outputs.private_subnet_ids
   
-  kubernetes_version = "1.28"
+  public_access_cidrs = local.common_vars.locals.eks_ip_allow_list
   
-  endpoint_private_access = true
-  endpoint_public_access  = true
-  public_access_cidrs     = ["0.0.0.0/0"]  # Restrict this in production
-  
-  # Disable CloudWatch logs to save costs (comment out to enable)
-  # https://docs.aws.amazon.com/eks/latest/userguide/control-plane-logs.html
-  # enabled_cluster_log_types = ["api", "audit", "authenticator", "controlManager", "scheduler"]
+  # Disable CloudWatch logs to save costs in dev
   enabled_cluster_log_types = []
-  
-  enable_irsa = true
-  
-  # EKS add-ons with latest versions for EKS 1.28
-  # To check latest versions: aws eks describe-addon-versions --kubernetes-version 1.28 --addon-name <addon-name>
-  eks_addons = {
-    coredns = {
-      version = "v1.10.1-eksbuild.7"  
-    }
-    kube-proxy = {
-      version = "v1.28.6-eksbuild.2"  
-    }
-    vpc-cni = {
-      version = "v1.16.0-eksbuild.1"  
-    }
-  }
   
   common_tags = merge(
     local.common_vars.locals.default_tags,

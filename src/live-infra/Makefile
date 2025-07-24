@@ -1,4 +1,4 @@
-.PHONY: diagram plan deploy
+.PHONY: diagram plan deploy infra-cost infra-cost-breakdown
 
 diagram:
 	@mkdir -p diagrams
@@ -13,3 +13,7 @@ plan:
 deploy:
 	@echo "Deploying infrastructure..."
 	@cd dev/eu-central-1 && terragrunt run-all apply
+
+infra-cost:
+	@echo "Generating cost estimate for infrastructure changes..."
+	@cd dev/eu-central-1 && infracost breakdown --path .

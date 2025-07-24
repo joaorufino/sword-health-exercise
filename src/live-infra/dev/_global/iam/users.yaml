@@ -1,16 +1,42 @@
 # IAM Users Configuration
 # No variables available - use exact usernames
 
+# Admin users
 joao.rufino@outlook.pt:
   groups:
-    - admin-access      # Can assume admin role
-    - iam-admins       # Direct IAM permissions
+    - admins           # Can assume admin role and has self-service permissions
   create_login_profile: true
-  create_access_keys: true
+  create_access_keys: false  # Use temporary credentials from assumed roles instead
+  tags:
+    Team: "Platform"
+    Access: "Admin"
 
-test.user@swordhealth.com:
+# Developer users (add more as needed)
+dev.user@swordhealth.com:
   groups:
-    - readonly-access   # Can assume readonly role
-  create_login_profile: false
+    - developers       # Can assume developer and readonly roles
+  create_login_profile: true
   create_access_keys: false
+  tags:
+    Team: "Development"
+    Access: "Developer"
+
+# Read-only users for auditing/monitoring
+audit.user@swordhealth.com:
+  groups:
+    - readonly-users   # Can only assume readonly role
+  create_login_profile: true
+  create_access_keys: false
+  tags:
+    Team: "Audit"
+    Access: "ReadOnly"
+
+# Service account for CI/CD (if not using OIDC)
+# cicd.automation:
+#   groups: []
+#   create_login_profile: false
+#   create_access_keys: true
+#   tags:
+#     Purpose: "CI/CD"
+#     Service: "GitHubActions"
 

@@ -34,37 +34,68 @@ locals {
   azs_count = 3
 
   # EKS configuration
-  eks_cluster_version = "1.28"
-  eks_node_instance_types = {
-    dev     = ["t3.medium"]
+  eks_cluster_version = "1.33"  # Latest version as of July 2025
+  
+  # EKS add-on versions
+  eks_addon_versions = {
+    coredns    = "v1.11.4-eksbuild.2"
+    kube_proxy = "v1.33.0-eksbuild.1"
+    vpc_cni    = "v1.18.0-eksbuild.1"
+  }
+  
+  # AWS Load Balancer Controller versions
+  alb_controller_version       = "2.13.3"
+  alb_controller_chart_version = "1.6.2"
+  
+  # Helm chart versions
+  helm_chart_versions = {
+    node_example                 = "0.1.0"
+    aws_load_balancer_controller = "1.6.2"
   }
 
   # RDS configuration
   rds_engine_version = "8.0.35"
-  rds_instance_class = {
-    dev     = "db.t3.micro"
-  }
-  rds_backup_retention_period = {
-    dev     = 7
-  }
+  rds_iam_database_authentication_enabled = true
 
   # Application configuration
-  node_example_image = "swordhealth/node-example:latest"
+  node_example_image = "swordhealth/node-example:0.0.1"
 
   # S3 bucket names for application
-  app_bucket_read_suffix  = "app-data-read"
-  app_bucket_write_suffix = "app-data-write"
+  app_bucket_readwrite_name = "node-example"      # Will be suffixed with account name
+  app_bucket_readonly_name  = "node-example"  # Will be suffixed with account name
 
   # SQS queue configuration
-  sqs_queue_name = "${local.name_prefix}-app-queue"
-  sqs_dlq_name   = "${local.name_prefix}-app-dlq"
+  sqs_queue_name = "node-example"   # Will be suffixed with account name
+  sqs_dlq_name   = "node-example-dlq"   # Will be suffixed with account name
+
+  # Application infrastructure defaults
+  app_infrastructure = {
+    s3_permissions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket"
+    ]
+    s3_readonly_permissions = [
+      "s3:GetObject",
+      "s3:ListBucket"
+    ]
+    sqs_permissions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:SendMessage",
+      "sqs:GetQueueAttributes"
+    ]
+    enable_s3_versioning = true
+    enable_sqs_dlq = true
+    sqs_max_receive_count = 3
+  }
+  
 
 
   # IP addresses allowed to access EKS API endpoint
   eks_ip_allow_list = [
-    # "1.2.3.4/32",     # Admin user IP
-    # "5.6.7.8/32",     # Test user IP
-    # "10.0.0.0/8",     # Corporate network range (example)
+    "94.61.153.77/32",     # Admin user IP
   ]
   
   # IP addresses allowed for deployment operations (CI/CD, etc.)
