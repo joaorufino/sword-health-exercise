@@ -1,6 +1,9 @@
 # AWS EKS Infrastructure - Requirements Implementation Map
 
-This repository implements a production-ready Kubernetes infrastructure on AWS. The table below maps each requirement to its implementation.
+This repository creates an easily replicatable system for the deployment of a secure kubernetes cluster.
+The solution privileges the DRY paradigm.
+
+The submitted solution is in the *delivered* branch. 
 
 ## Requirements to Implementation Mapping
 
@@ -12,7 +15,7 @@ This repository implements a production-ready Kubernetes infrastructure on AWS. 
 | **REQ-INFRA-004-MULTI-ENV** | Multi-environment support | `src/live-infra/_envcommon/`<br>`src/live-infra/dev/`<br>`src/live-infra/common.hcl` | ✅ |
 | **REQ-SEC-001-PRIVATE-CLUSTER** | EKS not publicly accessible | `src/infra-modules/services/eks/eks-control-plane/main.tf`<br>`src/live-infra/_envcommon/eks-control-plane.hcl` | ⚠️ Public but IP-restricted |
 | **REQ-SEC-002-ACCESS-METHOD** | Secure cluster access | IAM roles + kubectl configured in EKS module | ✅ |
-| **REQ-SEC-003-POD-ISOLATION** | Isolate node-example app | | ⚠️TBD |
+| **REQ-SEC-003-POD-ISOLATION** | Isolated trought Network Policies on deployment annotation | src/kube-apps/charts/`<br>`/templates/networkpolicy.yaml | ✅ |
 | **REQ-NET-001-LOAD-BALANCER** | Load balancer for traffic | `src/infra-modules/services/alb-controller-irsa/`<br>`src/live-infra/dev/eu-central-1/apps/aws-load-balancer-controller/` | ✅ |
 | **REQ-DB-001-MYSQL** | MySQL database | `src/infra-modules/storage/rds/`<br>`src/live-infra/dev/eu-central-1/storage/rds-mysql/` | ✅ |
 | **REQ-DB-002-BACKUP** | Database backup automation | `src/infra-modules/storage/rds/main.tf` (7-day backups) | ✅ |
